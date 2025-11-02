@@ -23,6 +23,7 @@ const HOUR_PX = 48; // 每小时高度
 const START_HOUR = 6;
 const END_HOUR = 23; // 含尾端显示，但高度计算以 (END-START) 小时
 const RANGE_MINUTES = (END_HOUR - START_HOUR) * 60;
+const SNAP_MIN = 15; // 邻近任务吸附阈值（分钟）
 
 function clamp(n: number, min: number, max: number) { return Math.max(min, Math.min(max, n)); }
 
@@ -41,6 +42,42 @@ function timeToOffsetPx(t: string) {
 }
 function minutesBetween(start: string, end: string) { return timeToMinutes(end) - timeToMinutes(start); }
 
+// 返回同列任务边界（开始/结束分钟）的集合，用于吸附
+function dayBoundaries(tasks: Task[], dayIndex: number, excludeId?: string) {
+  const set = new Set<number>();
+  for (const t of tasks) {
+    if (t.dayIndex !== dayIndex || t.id === excludeId) continue;
+    set.add(timeToMinutes(t.start));
+    set.add(timeToMinutes(t.end));
+  }
+  return Array.from(set.values()).sort((a,b)=>a-b);
+}
+
+// 检测冲突任务 id 集合
+function computeConflicts(tasks: Task[]) {
+  const conflicts = new Set<string>();
+  const byDay = new Map<number, Task[]>();
+  for (const t of tasks) {
+    const arr = byDay.get(t.dayIndex) ?? [];
+    arr.push(t); byDay.set(t.dayIndex, arr);
+  }
+  for (const [_, arr] of byDay) {
+    const sorted = arr.slice().sort((a,b)=> timeToMinutes(a.start) - timeToMinutes(b.start));
+    let prev: Task | null = null;
+    for (const cur of sorted) {
+      if (prev) {
+        const prevEnd = timeToMinutes(prev.end);
+        const curStart = timeToMinutes(cur.start);
+        if (curStart < prevEnd) { // overlap
+          conflicts.add(prev.id); conflicts.add(cur.id);
+        }
+      }
+      if (!prev || timeToMinutes(cur.end) > timeToMinutes(prev.end)) prev = cur;
+    }
+  }
+  return conflicts;
+}
+
 export default function PlannerGrid({ days, tasks, onChangeTasks }: Props) {
   const hours = hoursRange(START_HOUR, END_HOUR);
   const gridRef = useRef<HTMLDivElement>(null);
@@ -56,6 +93,7 @@ export default function PlannerGrid({ days, tasks, onChangeTasks }: Props) {
   }>(null);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [editingTitle, setEditingTitle] = useState<string>('');
+  const [guideY, setGuideY] = useState<number | null>(null); // 吸附指示线
 
   const heightPx = (hours.length - 1) * HOUR_PX;
 
@@ -66,6 +104,8 @@ export default function PlannerGrid({ days, tasks, onChangeTasks }: Props) {
       return `${d.getMonth()+1}/${d.getDate()}`;
     });
   }, [days]);
+
+  const conflictIds = useMemo(() => computeConflicts(tasks), [tasks]);
 
   const updateTask = useCallback((id: string, updater: (t: Task) => Task) => {
     if (!onChangeTasks) return;
@@ -91,6 +131,16 @@ export default function PlannerGrid({ days, tasks, onChangeTasks }: Props) {
     setSelectedId(newTask.id);
   }, [days, heightPx, onChangeTasks, tasks]);
 
+  // 邻近任务吸附：若接近同列任务边界 <= SNAP_MIN，则优先吸附
+  const snapToNeighbors = useCallback((dayIndex: number, minsAbs: number, excludeId?: string) => {
+    const boundaries = dayBoundaries(tasks, dayIndex, excludeId);
+    let snapped: number | null = null;
+    for (const b of boundaries) {
+      if (Math.abs(b - minsAbs) <= SNAP_MIN) { snapped = b; break; }
+    }
+    return snapped;
+  }, [tasks]);
+
   const onMouseMove = useCallback((e: React.MouseEvent) => {
     if (!drag || !gridRef.current) return;
     const rect = gridRef.current.getBoundingClientRect();
@@ -99,9 +149,22 @@ export default function PlannerGrid({ days, tasks, onChangeTasks }: Props) {
     const relY = clamp(e.clientY - rect.top, 0, heightPx);
     const dayIndex = clamp(Math.floor(relX / colWidth), 0, days-1);
 
-    // y -> minutes from 06:00, snap to 30m
-    const minutesFromStart = snap30(Math.round(relY / heightPx * RANGE_MINUTES));
-    const currentStart = START_HOUR*60 + minutesFromStart;
+    // y -> minutes from 06:00
+    let minutesFromStart = Math.round(relY / heightPx * RANGE_MINUTES);
+    let minsAbs = START_HOUR*60 + minutesFromStart;
+    const snappedAbs = snapToNeighbors(dayIndex, minsAbs, drag.id);
+    if (snappedAbs != null) {
+      minsAbs = snappedAbs;
+      minutesFromStart = minsAbs - START_HOUR*60;
+      // 指示线位置
+      setGuideY((minutesFromStart / RANGE_MINUTES) * ((END_HOUR-START_HOUR)*HOUR_PX));
+    } else {
+      setGuideY(null);
+    }
+
+    // 30 分钟对齐（在吸附后再对齐）
+    const snappedFromStart = snap30(minutesFromStart);
+    const currentStart = START_HOUR*60 + snappedFromStart;
 
     if (drag.type === 'move') {
       const newStart = clamp(currentStart, START_HOUR*60, END_HOUR*60);
@@ -110,7 +173,6 @@ export default function PlannerGrid({ days, tasks, onChangeTasks }: Props) {
       const fixedStart = newEnd - drag.duration; // 保持时长
       updateTask(drag.id, t => ({ ...t, dayIndex, start: minutesToTime(fixedStart), end: minutesToTime(newEnd) }));
     } else if (drag.type === 'resize-top') {
-      // 只改开始，不超过 end-30
       const endMin = timeToMinutes(drag.orig.end);
       const newStart = clamp(currentStart, START_HOUR*60, endMin - 30);
       updateTask(drag.id, t => ({ ...t, dayIndex, start: minutesToTime(newStart) }));
@@ -119,9 +181,9 @@ export default function PlannerGrid({ days, tasks, onChangeTasks }: Props) {
       const newEnd = clamp(currentStart, startMin + 30, END_HOUR*60);
       updateTask(drag.id, t => ({ ...t, dayIndex, end: minutesToTime(newEnd) }));
     }
-  }, [drag, days, heightPx, updateTask]);
+  }, [days, drag, heightPx, updateTask, snapToNeighbors]);
 
-  const onMouseUp = useCallback(() => setDrag(null), []);
+  const onMouseUp = useCallback(() => { setDrag(null); setGuideY(null); }, []);
 
   const commitEdit = useCallback(() => {
     if (!editingId) return;
@@ -171,6 +233,12 @@ export default function PlannerGrid({ days, tasks, onChangeTasks }: Props) {
           {hours.slice(0,-1).map((_, row) => (
             <div key={'h'+row} className="pointer-events-none absolute left-0 right-0 border-t border-zinc-100 dark:border-zinc-900" style={{ top: `${row*HOUR_PX+HOUR_PX/2}px`}} />
           ))}
+
+          {/* 吸附指示线 */}
+          {guideY!=null && (
+            <div className="pointer-events-none absolute left-0 right-0 border-t border-blue-400/70 dark:border-blue-500/70" style={{ top: `${guideY}px`}} />
+          )}
+
           {/* columns */}
           <div className="relative flex" style={{ height: `${(hours.length-1)*HOUR_PX}px`}}>
             {dayLabels.map((_, col) => (
@@ -181,9 +249,10 @@ export default function PlannerGrid({ days, tasks, onChangeTasks }: Props) {
                   const height = Math.max(HOUR_PX/2, minutesBetween(t.start, t.end) / 60 * HOUR_PX);
                   const isSel = selectedId===t.id;
                   const isEdit = editingId===t.id;
+                  const isConflict = conflictIds.has(t.id);
                   return (
                     <div key={t.id}
-                         className={`group absolute left-1 right-1 rounded-md border text-xs px-2 py-1 shadow-sm ${t.done? 'bg-green-200/60 border-green-300 text-green-900 dark:bg-green-900/30 dark:border-green-800 dark:text-green-200 line-through' : 'bg-blue-100/60 border-blue-300 text-blue-900 dark:bg-blue-900/30 dark:border-blue-800 dark:text-blue-200'} ${isSel?'ring-2 ring-blue-400':''}`}
+                         className={`group absolute left-1 right-1 rounded-md border text-xs px-2 py-1 shadow-sm ${t.done? 'bg-green-200/60 border-green-300 text-green-900 dark:bg-green-900/30 dark:border-green-800 dark:text-green-200 line-through' : isConflict? 'bg-red-100/60 border-red-300 text-red-900 dark:bg-red-900/30 dark:border-red-800 dark:text-red-200' : 'bg-blue-100/60 border-blue-300 text-blue-900 dark:bg-blue-900/30 dark:border-blue-800 dark:text-blue-200'} ${isSel?'ring-2 ring-blue-400':''}`}
                          style={{ top, height }}
                          title={`${t.title} (${t.start}-${t.end})`}
                          onMouseDown={(e) => {
@@ -217,7 +286,10 @@ export default function PlannerGrid({ days, tasks, onChangeTasks }: Props) {
                         />
                       ) : (
                         <>
-                          <div className="truncate">{t.title}</div>
+                          <div className="truncate flex items-center justify-between">
+                            <span>{t.title}</span>
+                            {isConflict && <span className="ml-2 rounded bg-red-500/80 px-1 text-[10px] leading-4 text-white">冲突</span>}
+                          </div>
                           <div className="opacity-70">{t.start} - {t.end}</div>
                           {/* resize handles */}
                           <div
