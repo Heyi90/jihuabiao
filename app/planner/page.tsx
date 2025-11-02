@@ -18,9 +18,7 @@ function diffDays(a: Date, b: Date) { return Math.round((startOfDay(a).getTime()
 export default function PlannerPage() {
   const [view, setView] = useState<ViewMode>('week');
   const [days, setDays] = useState<number>(7);
-  // base anchor: dayIndex=0 reference (initial "today"); not changed when navigating
   const [baseAnchor] = useState<Date>(startOfDay(new Date()));
-  // anchorDate: current view anchor (left-most day or month 1st day)
   const [anchorDate, setAnchorDate] = useState<Date>(startOfDay(new Date()));
   const [tasks, setTasks] = useState<Task[]>([
     { id: 't1', title: '晨读', dayIndex: 0, start: '07:00', end: '08:00' },
@@ -31,13 +29,11 @@ export default function PlannerPage() {
   ]);
   const [selectedTaskIds, setSelectedTaskIds] = useState<string[]>([]);
 
-  // adjust default days when switching views
   useMemo(() => {
     if (view === 'day' && days !== 3 && days !== 1) setDays(3);
     if (view === 'week' && days !== 7) setDays(7);
   }, [view]);
 
-  // derive tasks relative to current anchor
   const shift = diffDays(anchorDate, baseAnchor);
   const derivedTasks = useMemo(() => tasks.map(t => ({ ...t, dayIndex: t.dayIndex - shift })), [tasks, shift]);
   const applyDerivedTasks = (next: Task[]) => {
@@ -55,14 +51,8 @@ export default function PlannerPage() {
     return `${fmtMD(start)} - ${fmtMD(end)}`;
   }, [view, anchorDate, days]);
 
-  const onPrev = () => {
-    if (view === 'month') setAnchorDate(addMonths(startOfMonth(anchorDate), -1));
-    else setAnchorDate(addDays(anchorDate, -days));
-  };
-  const onNext = () => {
-    if (view === 'month') setAnchorDate(addMonths(startOfMonth(anchorDate), 1));
-    else setAnchorDate(addDays(anchorDate, days));
-  };
+  const onPrev = () => { if (view === 'month') setAnchorDate(addMonths(startOfMonth(anchorDate), -1)); else setAnchorDate(addDays(anchorDate, -days)); };
+  const onNext = () => { if (view === 'month') setAnchorDate(addMonths(startOfMonth(anchorDate), 1)); else setAnchorDate(addDays(anchorDate, days)); };
   const onToday = () => setAnchorDate(startOfDay(new Date()));
 
   return (
@@ -75,9 +65,11 @@ export default function PlannerPage() {
         onPrev={onPrev}
         onNext={onNext}
         onToday={onToday}
-        rangeLabel={rangeLabel}\n        selectedTaskIds={selectedTaskIds}
-        onChangeTaskColor={(c) => setTasks(prev => prev.map(t => t.id===selectedTaskId ? { ...t, color: c } : t))}
-        onChangeTaskColor={(c) => setTasks(prev => prev.map(t => (selectedTaskIds.includes(t.id) ? { ...t, color: c } : t)))}\n        extraRight={<ExportMenu days={days} tasks={derivedTasks} anchorDate={anchorDate} />}\n      />
+        rangeLabel={rangeLabel}
+        selectedTaskIds={selectedTaskIds}
+        onChangeTaskColor={(c) => setTasks(prev => prev.map(t => (selectedTaskIds.includes(t.id) ? { ...t, color: c } : t)))}
+        extraRight={<ExportMenu days={days} tasks={derivedTasks} anchorDate={anchorDate} />}
+      />
       <div className="flex-1">
         {view === 'month' ? (
           <MonthView tasks={derivedTasks} anchorDate={anchorDate} />
@@ -88,5 +80,3 @@ export default function PlannerPage() {
     </div>
   );
 }
-
-
