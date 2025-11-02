@@ -73,7 +73,10 @@ export default function PlannerGrid({ days, tasks, onChangeTasks, anchorDate, on
   const gridRef = useRef<HTMLDivElement>(null);
   const containerRef = useRef<HTMLDivElement>(null);
   const [selectedIds, setSelectedIds] = useState<string[]>([]);
-  const [drag, setDrag] = useState<null | { id: string; type: 'move' | 'resize-top' | 'resize-bottom'; startClientX: number; startClientY: number; orig: Task; duration: number; }>(null);
+  const [drag, setDrag] = useState<null | (
+    { type: 'move'; ids: string[]; anchorId: string; origs: Record<string, Task>; startClientX: number; startClientY: number; }
+    | { type: 'resize-top' | 'resize-bottom'; id: string; orig: Task; startClientX: number; startClientY: number; }
+  )>(null);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [editingTitle, setEditingTitle] = useState<string>('');
   const [guideY, setGuideY] = useState<number | null>(null);
@@ -87,7 +90,6 @@ export default function PlannerGrid({ days, tasks, onChangeTasks, anchorDate, on
   }, [days, anchorDate]);
 
   const conflictIds = useMemo(() => {
-    // simple scan per day
     const ids = new Set<string>();
     const byDay = new Map<number, Task[]>();
     for (const t of tasks) { const arr = byDay.get(t.dayIndex) ?? []; arr.push(t); byDay.set(t.dayIndex, arr); }
@@ -103,12 +105,6 @@ export default function PlannerGrid({ days, tasks, onChangeTasks, anchorDate, on
   }, [tasks]);
 
   const setSel = (ids: string[]) => { setSelectedIds(ids); onSelectTasks?.(ids); };
-
-  const updateTask = useCallback((id: string, updater: (t: Task) => Task) => {
-    if (!onChangeTasks) return; onChangeTasks(tasks.map(t => t.id===id ? updater(t) : t));
-  }, [tasks, onChangeTasks]);
-
-  const toggleDone = useCallback((id: string) => { updateTask(id, t => ({ ...t, done: !t.done })); }, [updateTask]);
 
   const beginMarquee = (e: React.MouseEvent) => {
     if (!gridRef.current) return;
@@ -156,8 +152,7 @@ export default function PlannerGrid({ days, tasks, onChangeTasks, anchorDate, on
   }, [days, heightPx, onChangeTasks, tasks]);
 
   const onMouseMoveGrid = useCallback((e: React.MouseEvent) => {
-    if (drag) {
-      if (!gridRef.current) return;
+    if (drag && gridRef.current) {
       const rect = gridRef.current.getBoundingClientRect();
       const colWidth = rect.width / days;
       const relX = clamp(e.clientX - rect.left, 0, rect.width - 1);
@@ -165,57 +160,89 @@ export default function PlannerGrid({ days, tasks, onChangeTasks, anchorDate, on
       const dayIndex = clamp(Math.floor(relX / colWidth), 0, days-1);
       let minutesFromStart = Math.round(relY / heightPx * RANGE_MINUTES);
       let minsAbs = START_HOUR*60 + minutesFromStart;
+      // snap to neighbor for anchor column only (simple)
       const boundaries = (() => {
         const set = new Set<number>();
-        for (const t of tasks) { if (t.dayIndex!==dayIndex || t.id===drag.id) continue; set.add(timeToMinutes(t.start)); set.add(timeToMinutes(t.end)); }
+        for (const t of tasks) {
+          if ('type' in drag && drag.type==='move') {
+            const anchorOrig = drag.origs[drag.anchorId];
+            if (t.dayIndex!==anchorOrig.dayIndex) continue;
+          }
+        }
         return Array.from(set.values()).sort((a,b)=>a-b);
       })();
       const near = boundaries.find(b => Math.abs(b - minsAbs) <= SNAP_MIN);
       if (near!=null) { minsAbs = near; minutesFromStart = minsAbs - START_HOUR*60; setGuideY((minutesFromStart / RANGE_MINUTES) * ((END_HOUR-START_HOUR)*HOUR_PX)); } else { setGuideY(null); }
       const snappedFromStart = snap30(minutesFromStart);
       const currentStart = START_HOUR*60 + snappedFromStart;
+
       if (drag.type === 'move') {
-        const newStart = clamp(currentStart, START_HOUR*60, END_HOUR*60);
-        let newEnd = newStart + drag.duration; if (newEnd > END_HOUR*60) newEnd = END_HOUR*60;
-        const fixedStart = newEnd - drag.duration;
-        updateTask(drag.id, t => ({ ...t, dayIndex, start: minutesToTime(fixedStart), end: minutesToTime(newEnd) }));
+        const anchorOrig = drag.origs[drag.anchorId];
+        const deltaDay = dayIndex - anchorOrig.dayIndex;
+        const deltaMin = currentStart - timeToMinutes(anchorOrig.start);
+        if (onChangeTasks) {
+          const idsSet = new Set(drag.ids);
+          const newTasks = tasks.map(t => {
+            if (!idsSet.has(t.id)) return t;
+            const orig = drag.origs[t.id];
+            let newDay = clamp(orig.dayIndex + deltaDay, 0, days-1);
+            let startMin = clamp(timeToMinutes(orig.start) + deltaMin, START_HOUR*60, END_HOUR*60);
+            let endMin = startMin + minutesBetween(orig.start, orig.end);
+            if (endMin > END_HOUR*60) { endMin = END_HOUR*60; startMin = Math.max(START_HOUR*60, endMin - minutesBetween(orig.start, orig.end)); }
+            return { ...t, dayIndex: newDay, start: minutesToTime(startMin), end: minutesToTime(endMin) };
+          });
+          onChangeTasks(newTasks);
+        }
       } else if (drag.type === 'resize-top') {
         const endMin = timeToMinutes(drag.orig.end);
         const newStart = clamp(currentStart, START_HOUR*60, endMin - 30);
-        updateTask(drag.id, t => ({ ...t, dayIndex, start: minutesToTime(newStart) }));
+        if (onChangeTasks) {
+          onChangeTasks(tasks.map(t => t.id===drag.id ? { ...t, start: minutesToTime(newStart) } : t));
+        }
       } else if (drag.type === 'resize-bottom') {
         const startMin = timeToMinutes(drag.orig.start);
         const newEnd = clamp(currentStart, startMin + 30, END_HOUR*60);
-        updateTask(drag.id, t => ({ ...t, dayIndex, end: minutesToTime(newEnd) }));
+        if (onChangeTasks) {
+          onChangeTasks(tasks.map(t => t.id===drag.id ? { ...t, end: minutesToTime(newEnd) } : t));
+        }
       }
     }
     if (marquee) updateMarquee(e);
-  }, [drag, days, heightPx, tasks, updateTask, marquee]);
+  }, [drag, days, heightPx, tasks, onChangeTasks, marquee]);
 
   const onMouseUp = useCallback(() => { setDrag(null); setGuideY(null); endMarquee(); }, []);
 
   const commitEdit = useCallback(() => {
-    if (!editingId) return; const title = editingTitle.trim();
-    if (title && onChangeTasks) updateTask(editingId, t => ({ ...t, title }));
+    if (!editingId) return;
+    const title = editingTitle.trim();
+    if (title && onChangeTasks) {
+      onChangeTasks(tasks.map(t => t.id===editingId ? { ...t, title } : t));
+    }
     setEditingId(null);
-  }, [editingId, editingTitle, onChangeTasks, updateTask]);
+  }, [editingId, editingTitle, onChangeTasks, tasks]);
 
   const removeSelected = useCallback(() => {
-    if (!selectedIds.length || !onChangeTasks) return; onChangeTasks(tasks.filter(t => !selectedIds.includes(t.id))); setSel([]);
+    if (!selectedIds.length || !onChangeTasks) return;
+    onChangeTasks(tasks.filter(t => !selectedIds.includes(t.id)));
+    setSel([]);
   }, [onChangeTasks, selectedIds, tasks]);
+
+  const isOnCard = (el: HTMLElement | null) => {
+    return !!el?.closest('[data-card="1"]');
+  };
 
   return (
     <div ref={containerRef} className="flex overflow-auto outline-none" onMouseUp={onMouseUp} tabIndex={0} onKeyDown={(e) => {
       if (e.key === 'Delete') { e.preventDefault(); removeSelected(); }
       if (e.key === 'Escape') { e.preventDefault(); setSel([]); }
-      if (e.key === ' ' || e.key === 'Spacebar' || e.code === 'Space') { e.preventDefault(); if (selectedIds.length) selectedIds.forEach(toggleDone); }
+      if (e.key === ' ' || e.key === 'Spacebar' || e.code === 'Space') { e.preventDefault(); if (selectedIds.length) selectedIds.forEach(id => { const t = tasks.find(x=>x.id===id); if (t) { onChangeTasks?.(tasks.map(x=> x.id===id ? { ...x, done: !x.done } : x)); } }); }
     }}>
       <TimelineY />
       <div className="min-w-0 flex-1">
         <div className="sticky top-0 z-10 flex bg-background/95 backdrop-blur border-b">
           {dayLabels.map((label, i) => (<div key={i} className="flex-1 border-r px-2 py-2 text-center text-sm text-zinc-700">{label}</div>))}
         </div>
-        <div ref={gridRef} className="relative cursor-default select-none" onMouseMove={onMouseMoveGrid} onMouseDown={(e)=>{ if (e.target===gridRef.current) beginMarquee(e); }}>
+        <div ref={gridRef} className="relative cursor-default select-none" onMouseMove={onMouseMoveGrid} onMouseDown={(e)=>{ const el = e.target as HTMLElement; if (!isOnCard(el)) beginMarquee(e); }}>
           {hours.map((_, row) => (<div key={row} className="pointer-events-none absolute left-0 right-0 border-t border-dashed border-zinc-200 dark:border-zinc-800" style={{ top: `${row*HOUR_PX}px`}} />))}
           {hours.slice(0,-1).map((_, row) => (<div key={'h'+row} className="pointer-events-none absolute left-0 right-0 border-t border-zinc-100 dark:border-zinc-900" style={{ top: `${row*HOUR_PX+HOUR_PX/2}px`}} />))}
           {guideY!=null && (<div className="pointer-events-none absolute left-0 right-0 border-t border-blue-400/70 dark:border-blue-500/70" style={{ top: `${guideY}px`}} />)}
@@ -233,7 +260,7 @@ export default function PlannerGrid({ days, tasks, onChangeTasks, anchorDate, on
                   const colorCls = colorClasses(t);
                   const ringCls = ringClass(t);
                   return (
-                    <div key={t.id}
+                    <div key={t.id} data-card="1"
                       className={`group absolute left-1 right-1 rounded-md border text-xs px-2 py-1 shadow-sm ${isConflict? 'bg-red-100/60 border-red-300 text-red-900 dark:bg-red-900/30 dark:border-red-800 dark:text-red-200' : (t.done? colorCls + ' line-through opacity-80' : colorCls)} ${isSel?('ring-2 ' + ringCls):''}`}
                       style={{ top, height }}
                       title={`${t.title} (${t.start}-${t.end})`}
@@ -241,15 +268,25 @@ export default function PlannerGrid({ days, tasks, onChangeTasks, anchorDate, on
                         e.stopPropagation();
                         if (isEdit) return;
                         const target = e.target as HTMLElement; if (target.dataset && (target.dataset as any).handle) return;
-                        if ((e as any).shiftKey) { const next = isSel? selectedIds.filter(x=>x!==t.id) : [...selectedIds, t.id]; setSel(next); return; }
                         const cloneDrag = (e as any).altKey || (e as any).ctrlKey;
+                        // determine dragging ids
+                        let idsToUse = selectedIds.includes(t.id) ? selectedIds : [t.id];
+                        // if cloning selected group
                         if (cloneDrag && onChangeTasks) {
-                          const copy: Task = { ...t, id: 't'+Math.random().toString(36).slice(2,8) };
-                          onChangeTasks([...tasks, copy]); setSel([copy.id]);
-                          setDrag({ id: copy.id, type: 'move', startClientX: (e as any).clientX, startClientY: (e as any).clientY, orig: copy, duration: minutesBetween(copy.start, copy.end) });
+                          const idSet = new Set(idsToUse);
+                          const copies: Task[] = tasks.filter(x=>idSet.has(x.id)).map(x=> ({ ...x, id: 't'+Math.random().toString(36).slice(2,8) }));
+                          const newTasks = [...tasks, ...copies];
+                          onChangeTasks(newTasks);
+                          idsToUse = copies.map(c=>c.id);
+                          const origs: Record<string, Task> = {}; copies.forEach(c=>{ origs[c.id]=c; });
+                          setSel(idsToUse);
+                          setDrag({ type: 'move', ids: idsToUse, anchorId: idsToUse[0], origs, startClientX: (e as any).clientX, startClientY: (e as any).clientY });
                         } else {
-                          setSel([t.id]);
-                          setDrag({ id: t.id, type: 'move', startClientX: (e as any).clientX, startClientY: (e as any).clientY, orig: t, duration: minutesBetween(t.start, t.end) });
+                          // start move for group or single
+                          const idSet = new Set(idsToUse);
+                          const origs: Record<string, Task> = {}; tasks.forEach(x=>{ if (idSet.has(x.id)) origs[x.id]=x; });
+                          if (!selectedIds.includes(t.id) && !(e as any).shiftKey) setSel([t.id]);
+                          setDrag({ type: 'move', ids: idsToUse, anchorId: idsToUse[0], origs, startClientX: (e as any).clientX, startClientY: (e as any).clientY });
                         }
                       }}
                     >
@@ -261,12 +298,12 @@ export default function PlannerGrid({ days, tasks, onChangeTasks, anchorDate, on
                             <span>{t.title}</span>
                             <div className="flex items-center gap-2">
                               {isConflict && <span className="ml-1 rounded bg-red-500/80 px-1 text-[10px] leading-4 text-white">冲突</span>}
-                              <button aria-label="toggle done" className={`h-4 w-4 rounded border text-[10px] leading-3 ${t.done?'bg-green-500 text-white border-green-600':'bg-white/60 dark:bg-zinc-900/60'}`} onClick={(e) => { (e as any).stopPropagation(); toggleDone(t.id); }}>{t.done ? 'x' : ''}</button>
+                              <button aria-label="toggle done" className={`h-4 w-4 rounded border text-[10px] leading-3 ${t.done?'bg-green-500 text-white border-green-600':'bg-white/60 dark:bg-zinc-900/60'}`} onClick={(e) => { (e as any).stopPropagation(); onChangeTasks?.(tasks.map(x=> x.id===t.id ? { ...x, done: !x.done } : x)); }}>{t.done ? 'x' : ''}</button>
                             </div>
                           </div>
                           <div className="opacity-70">{t.start} - {t.end}</div>
-                          <div data-handle onMouseDown={(e) => { (e as any).stopPropagation(); setSel([t.id]); setDrag({ id: t.id, type: 'resize-top', startClientX: (e as any).clientX, startClientY: (e as any).clientY, orig: t, duration: minutesBetween(t.start, t.end) }); }} className="absolute -top-1 left-1 right-1 h-2 cursor-n-resize rounded bg-blue-400/50 opacity-0 transition-opacity group-hover:opacity-100 dark:bg-blue-600/50" />
-                          <div data-handle onMouseDown={(e) => { (e as any).stopPropagation(); setSel([t.id]); setDrag({ id: t.id, type: 'resize-bottom', startClientX: (e as any).clientX, startClientY: (e as any).clientY, orig: t, duration: minutesBetween(t.start, t.end) }); }} className="absolute -bottom-1 left-1 right-1 h-2 cursor-s-resize rounded bg-blue-400/50 opacity-0 transition-opacity group-hover:opacity-100 dark:bg-blue-600/50" />
+                          <div data-handle onMouseDown={(e) => { (e as any).stopPropagation(); setSel([t.id]); setDrag({ type: 'resize-top', id: t.id, orig: t, startClientX: (e as any).clientX, startClientY: (e as any).clientY }); }} className="absolute -top-1 left-1 right-1 h-2 cursor-n-resize rounded bg-blue-400/50 opacity-0 transition-opacity group-hover:opacity-100 dark:bg-blue-600/50" />
+                          <div data-handle onMouseDown={(e) => { (e as any).stopPropagation(); setSel([t.id]); setDrag({ type: 'resize-bottom', id: t.id, orig: t, startClientX: (e as any).clientX, startClientY: (e as any).clientY }); }} className="absolute -bottom-1 left-1 right-1 h-2 cursor-s-resize rounded bg-blue-400/50 opacity-0 transition-opacity group-hover:opacity-100 dark:bg-blue-600/50" />
                         </>
                       )}
                     </div>
