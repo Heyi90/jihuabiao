@@ -13,10 +13,14 @@ function addDays(d: Date, n: number) { const x = new Date(d); x.setDate(x.getDat
 function startOfMonth(d: Date) { return new Date(d.getFullYear(), d.getMonth(), 1); }
 function addMonths(d: Date, n: number) { return new Date(d.getFullYear(), d.getMonth()+n, 1); }
 function fmtMD(d: Date) { return `${d.getMonth()+1}/${d.getDate()}`; }
+function diffDays(a: Date, b: Date) { return Math.round((startOfDay(a).getTime()-startOfDay(b).getTime())/86400000); }
 
 export default function PlannerPage() {
   const [view, setView] = useState<ViewMode>('week');
   const [days, setDays] = useState<number>(7);
+  // baseAnchor：任务 dayIndex 的参考原点（通常为首次进入时的“今天”），不随导航改变
+  const [baseAnchor] = useState<Date>(startOfDay(new Date()));
+  // anchorDate：当前视图左侧（或当月1日）锚点
   const [anchorDate, setAnchorDate] = useState<Date>(startOfDay(new Date()));
   const [tasks, setTasks] = useState<Task[]>([
     { id: 't1', title: '晨读', dayIndex: 0, start: '07:00', end: '08:00' },
@@ -26,10 +30,20 @@ export default function PlannerPage() {
     { id: 't5', title: '运动', dayIndex: 4, start: '18:30', end: '19:30' },
   ]);
 
+  // 当切换视图时，调整默认展示天数
   useMemo(() => {
     if (view === 'day' && days !== 3 && days !== 1) setDays(3);
     if (view === 'week' && days !== 7) setDays(7);
   }, [view]);
+
+  // 根据当前 anchorDate 与 baseAnchor 的天数差，将任务映射为“相对当前视图”的列索引
+  const shift = diffDays(anchorDate, baseAnchor); // 当前视图相对原点的位移（天）
+  const derivedTasks = useMemo(() => tasks.map(t => ({ ...t, dayIndex: t.dayIndex - shift })), [tasks, shift]);
+  const applyDerivedTasks = (next: Task[]) => {
+    // 将相对列索引还原为以 baseAnchor 为原点的 dayIndex
+    const restored = next.map(t => ({ ...t, dayIndex: t.dayIndex + shift }));
+    setTasks(restored);
+  };
 
   const rangeLabel = useMemo(() => {
     if (view === 'month') {
@@ -62,13 +76,13 @@ export default function PlannerPage() {
         onNext={onNext}
         onToday={onToday}
         rangeLabel={rangeLabel}
-        extraRight={<ExportMenu days={days} tasks={tasks} anchorDate={anchorDate} />}
+        extraRight={<ExportMenu days={days} tasks={derivedTasks} anchorDate={anchorDate} />}
       />
       <div className="flex-1">
         {view === 'month' ? (
-          <MonthView tasks={tasks} anchorDate={anchorDate} />
+          <MonthView tasks={derivedTasks} anchorDate={anchorDate} />
         ) : (
-          <PlannerGrid days={days} tasks={tasks} onChangeTasks={setTasks} anchorDate={anchorDate} />
+          <PlannerGrid days={days} tasks={derivedTasks} onChangeTasks={applyDerivedTasks} anchorDate={anchorDate} />
         )}
       </div>
     </div>
