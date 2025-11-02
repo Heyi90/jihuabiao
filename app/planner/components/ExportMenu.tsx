@@ -10,6 +10,16 @@ function detectTheme() {
 
 function pad(n: number) { return String(n).padStart(2,'0'); }
 
+const COLOR_CANVAS: Record<string, {fill: string; stroke: string}> = {
+  blue:   { fill: 'rgba(59,130,246,0.35)', stroke: '#2563eb' },
+  green:  { fill: 'rgba(16,185,129,0.35)', stroke: '#10b981' },
+  amber:  { fill: 'rgba(245,158,11,0.35)', stroke: '#f59e0b' },
+  purple: { fill: 'rgba(168,85,247,0.35)', stroke: '#a855f7' },
+  indigo: { fill: 'rgba(99,102,241,0.35)', stroke: '#6366f1' },
+  rose:   { fill: 'rgba(244,63,94,0.35)', stroke: '#f43f5e' },
+  gray:   { fill: 'rgba(113,113,122,0.35)', stroke: '#71717a' },
+};
+
 // Draw planner grid for day/week view into a canvas
 function drawPlannerCanvas(canvas: HTMLCanvasElement, days: number, tasks: Task[], anchorDate: Date, opts?: { scale?: number }) {
   const START_HOUR = 6;
@@ -32,13 +42,9 @@ function drawPlannerCanvas(canvas: HTMLCanvasElement, days: number, tasks: Task[
 
   const theme = detectTheme();
   const colors = theme === 'dark' ? {
-    bg: '#0a0a0a', fg: '#ededed', grid: '#222', gridMinor: '#161616', border: '#333',
-    blue: '#60a5fa', blueFill: 'rgba(37,99,235,0.35)', green: 'rgba(16,185,129,0.35)', greenBorder: '#10b981',
-    red: 'rgba(239,68,68,0.35)', redBorder: '#ef4444'
+    bg: '#0a0a0a', fg: '#ededed', grid: '#222', gridMinor: '#161616', border: '#333'
   } : {
-    bg: '#ffffff', fg: '#171717', grid: '#e5e7eb', gridMinor: '#f4f4f5', border: '#e4e4e7',
-    blue: '#2563eb', blueFill: 'rgba(59,130,246,0.35)', green: 'rgba(16,185,129,0.35)', greenBorder: '#10b981',
-    red: 'rgba(239,68,68,0.35)', redBorder: '#ef4444'
+    bg: '#ffffff', fg: '#171717', grid: '#e5e7eb', gridMinor: '#f4f4f5', border: '#e4e4e7'
   };
 
   // background
@@ -65,11 +71,8 @@ function drawPlannerCanvas(canvas: HTMLCanvasElement, days: number, tasks: Task[
     const hour = START_HOUR + h;
     const y = headerH + h*rowH;
     if (h>0) { ctx.strokeStyle = colors.grid; ctx.beginPath(); ctx.moveTo(0.5, y+0.5); ctx.lineTo(width, y+0.5); ctx.stroke(); }
-    if (h<hourRows) {
-      const yMinor = y + rowH/2;
-      ctx.strokeStyle = colors.gridMinor; ctx.beginPath(); ctx.moveTo(yAxisW+0.5, yMinor+0.5); ctx.lineTo(width, yMinor+0.5); ctx.stroke();
-    }
-    ctx.fillStyle = '#6b7280'; ctx.fillText(`${pad(hour)}:00`, yAxisW - 6, y + 2);
+    if (h<hourRows) { const yMinor = y + rowH/2; ctx.strokeStyle = colors.gridMinor; ctx.beginPath(); ctx.moveTo(yAxisW+0.5, yMinor+0.5); ctx.lineTo(width, yMinor+0.5); ctx.stroke(); }
+    ctx.fillStyle = '#6b7280'; ctx.fillText(`${String(hour).padStart(2,'0')}:00`, yAxisW - 6, y + 2);
   }
 
   // vertical columns
@@ -77,21 +80,14 @@ function drawPlannerCanvas(canvas: HTMLCanvasElement, days: number, tasks: Task[
 
   // tasks
   const rangeMinutes = (END_HOUR-START_HOUR)*60;
-  function yFor(time: string) {
-    const [hh,mm] = time.split(':').map(Number);
-    const mins = (hh*60+mm) - START_HOUR*60;
-    return headerH + (mins/rangeMinutes) * (hourRows*rowH);
-  }
+  function yFor(time: string) { const [hh,mm] = time.split(':').map(Number); const mins = (hh*60+mm) - START_HOUR*60; return headerH + (mins/rangeMinutes) * (hourRows*rowH); }
 
   // conflict detection per day
   const conflicts = new Set<string>();
   for (let d=0; d<days; d++) {
     const arr = tasks.filter(t=>t.dayIndex===d).sort((a,b)=> (a.start<b.start? -1:1));
     let prev: Task | null = null;
-    for (const cur of arr) {
-      if (prev) { if (cur.start < (prev as Task).end) { conflicts.add((prev as Task).id); conflicts.add(cur.id); } }
-      prev = cur;
-    }
+    for (const cur of arr) { if (prev) { if (cur.start < (prev as Task).end) { conflicts.add((prev as Task).id); conflicts.add(cur.id); } } prev = cur; }
   }
 
   for (const t of tasks) {
@@ -99,16 +95,16 @@ function drawPlannerCanvas(canvas: HTMLCanvasElement, days: number, tasks: Task[
     const y1 = yFor(t.start), y2 = yFor(t.end);
     const h = Math.max(20, y2 - y1), w = colW - 16;
     const isConflict = conflicts.has(t.id);
-    if (t.done) { ctx.fillStyle = colors.green; ctx.strokeStyle = colors.greenBorder; }
-    else if (isConflict) { ctx.fillStyle = colors.red; ctx.strokeStyle = colors.redBorder; }
-    else { ctx.fillStyle = colors.blueFill; ctx.strokeStyle = colors.blue; }
-    (ctx as any).beginPath();
+    const cc = COLOR_CANVAS[t.color || 'blue'];
+    if (t.done) { ctx.fillStyle = 'rgba(16,185,129,0.35)'; ctx.strokeStyle = '#10b981'; }
+    else if (isConflict) { ctx.fillStyle = 'rgba(239,68,68,0.35)'; ctx.strokeStyle = '#ef4444'; }
+    else { ctx.fillStyle = cc.fill; ctx.strokeStyle = cc.stroke; }
+    ctx.lineWidth = 1; (ctx as any).beginPath();
     if ((ctx as any).roundRect) { (ctx as any).roundRect(x, y1, w, h, 6); } else { ctx.rect(x, y1, w, h); }
     ctx.fill(); ctx.stroke();
-
-    ctx.save();
-    ctx.clip();
-    ctx.fillStyle = colors.fg; ctx.font = '12px system-ui, sans-serif'; ctx.textAlign = 'left'; ctx.textBaseline = 'top';
+    ctx.save(); ctx.clip();
+    ctx.fillStyle = '#111827'; if (detectTheme()==='dark') ctx.fillStyle = '#e5e7eb';
+    ctx.font = '12px system-ui, sans-serif'; ctx.textAlign = 'left'; ctx.textBaseline = 'top';
     const title = t.title + (t.done ? ' (已完成)' : '');
     ctx.fillText(title, x+8, y1+6, w-16);
     ctx.fillStyle = 'rgba(107,114,128,0.9)'; ctx.fillText(`${t.start} - ${t.end}`, x+8, y1+22, w-16);
