@@ -19,7 +19,7 @@ type Props = {
   tasks: Task[];
   onChangeTasks?: (tasks: Task[]) => void;
   anchorDate?: Date; // the date corresponding to dayIndex=0
-  onSelectTask?: (id: string | null) => void; // 通知外部当前选中任务
+  onSelectTask?: (id: string | null) => void; // notify parent
 };
 
 const HOUR_PX = 48; // pixels per hour
@@ -55,7 +55,10 @@ function ringClass(t: Task) {
     case 'gray': return 'ring-zinc-400';
     default: return 'ring-blue-400';
   }
-}function timeToMinutes(t: string) { const [hh, mm] = t.split(':').map(Number); return hh*60+mm; }
+}
+
+function clamp(n: number, min: number, max: number) { return Math.max(min, Math.min(max, n)); }
+function timeToMinutes(t: string) { const [hh, mm] = t.split(':').map(Number); return hh*60+mm; }
 function minutesToTime(m: number) { const hh = Math.floor(m/60), mm = m%60; return `${String(hh).padStart(2,'0')}:${String(mm).padStart(2,'0')}`; }
 function snap30(mins: number) { return Math.round(mins/30)*30; }
 function timeToOffsetPx(t: string) {
@@ -80,19 +83,12 @@ function dayBoundaries(tasks: Task[], dayIndex: number, excludeId?: string) {
 function computeConflicts(tasks: Task[]) {
   const conflicts = new Set<string>();
   const byDay = new Map<number, Task[]>();
-  for (const t of tasks) {
-    const arr = byDay.get(t.dayIndex) ?? [];
-    arr.push(t); byDay.set(t.dayIndex, arr);
-  }
+  for (const t of tasks) { const arr = byDay.get(t.dayIndex) ?? []; arr.push(t); byDay.set(t.dayIndex, arr); }
   for (const arr of byDay.values()) {
     const sorted = arr.slice().sort((a,b)=> timeToMinutes(a.start) - timeToMinutes(b.start));
     let prev: Task | null = null;
     for (const cur of sorted) {
-      if (prev) {
-        if (timeToMinutes(cur.start) < timeToMinutes(prev.end)) {
-          conflicts.add(prev.id); conflicts.add(cur.id);
-        }
-      }
+      if (prev && timeToMinutes(cur.start) < timeToMinutes(prev.end)) { conflicts.add(prev.id); conflicts.add(cur.id); }
       if (!prev || timeToMinutes(cur.end) > timeToMinutes(prev.end)) prev = cur;
     }
   }
@@ -113,10 +109,7 @@ export default function PlannerGrid({ days, tasks, onChangeTasks, anchorDate, on
 
   const dayLabels = useMemo(() => {
     const base = new Date(anchorDate ?? new Date()); base.setHours(0,0,0,0);
-    return Array.from({length: days}, (_, i) => {
-      const d = new Date(base); d.setDate(base.getDate() + i);
-      return `${d.getMonth()+1}/${d.getDate()}`;
-    });
+    return Array.from({length: days}, (_, i) => { const d = new Date(base); d.setDate(base.getDate() + i); return `${d.getMonth()+1}/${d.getDate()}`; });
   }, [days, anchorDate]);
 
   const conflictIds = useMemo(() => computeConflicts(tasks), [tasks]);
@@ -247,9 +240,10 @@ export default function PlannerGrid({ days, tasks, onChangeTasks, anchorDate, on
                   const isEdit = editingId===t.id;
                   const isConflict = conflictIds.has(t.id);
                   const colorCls = colorClasses(t);
+                  const ringCls = ringClass(t);
                   return (
                     <div key={t.id}
-                         className={`group absolute left-1 right-1 rounded-md border text-xs px-2 py-1 shadow-sm  `}
+                         className={`group absolute left-1 right-1 rounded-md border text-xs px-2 py-1 shadow-sm ${isConflict? 'bg-red-100/60 border-red-300 text-red-900 dark:bg-red-900/30 dark:border-red-800 dark:text-red-200' : (t.done? colorCls + ' line-through opacity-80' : colorCls)} ${isSel?('ring-2 ' + ringCls):''}`}
                          style={{ top, height }}
                          title={`${t.title} (${t.start}-${t.end})`}
                          onMouseDown={(e) => {
@@ -303,7 +297,3 @@ export default function PlannerGrid({ days, tasks, onChangeTasks, anchorDate, on
     </div>
   );
 }
-
-
-
-
