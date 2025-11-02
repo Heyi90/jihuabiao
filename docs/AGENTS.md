@@ -1,35 +1,32 @@
 ﻿# Repository Guidelines
 
 ## 项目结构与模块组织
-- 源码位于 src/，按领域/功能分层（如 src/auth/, src/lib/）。
-- 测试与源码镜像：tests/ 或就近（如 src/foo/foo.spec.ts、tests/test_foo.py）。
-- 资源在 assets/ 或 public/；脚本在 scripts/；CI/编辑器配置在 .github/、.vscode/、.editorconfig。
-- 提供 .env.example；严禁提交真实密钥。
+- app/: Next.js App Router 路由与页面（如 app/page.tsx、app/(routes)/...）。
+- public/: 静态资源（图标、OG 图等）。
+- docs/: 项目文档（AGENTS.md、REQUIREMENTS.md）。
+- 配置：next.config.ts、tsconfig.json、eslint.config.mjs、postcss.config.mjs。
+- 建议：在 app/ 下按功能划分 components/、lib/、styles/ 子目录，避免跨层依赖。
 
 ## 构建、测试与本地运行
-- Node: npm ci；npm run dev（本地调试）；npm run build；npm test
-- Python: pip install -r requirements.txt 或 poetry install；pytest
-- Go: go build ./...；go test ./...
-- 质量检查：npm run lint；npm run format 或 black . && isort .
-- 若有 Makefile：make build；make test
+- 安装依赖：npm ci（锁版本、可复现）。
+- 开发调试：npm run dev（默认 http://localhost:3000）。
+- 构建产物：npm run build；生产启动：npm start。
+- 代码检查：npm run lint（ESLint 规则见 eslint.config.mjs）。
 
-## 代码风格与命名
-- 缩进：JS/TS 2 空格；Python 4 空格；建议行宽≤100。
-- 命名：Class/Type 用 PascalCase；变量/函数 camelCase；Python 用 snake_case；脚本/配置用 kebab-case。
-- 模块小而内聚，纯函数优先；提交前本地 lint/format 通过。
+## 代码风格与命名约定
+- TypeScript，2 空格缩进，建议行宽 ≤100；严格类型优先（避免 any）。
+- 命名：组件/类型 PascalCase；变量/函数 camelCase；路由段 kebab-case；动态段 [id]。
+- React/Next：使用 Server/Client 组件分层；避免不必要的客户端组件。
+- Tailwind CSS v4：优先原子类与语义化组合，避免内联 style；抽共用样式为组件或样式片段。
 
-## 测试规范
-- 单测覆盖每个模块，边界/集成测试补充；目标覆盖率≥80%（视项目调整）。
-- 命名：*.spec.ts / *.test.ts；test_*.py；*_test.go。
-- 常用命令：npm test -- --watch；pytest -q；go test ./...
+## 测试指引（可选）
+- 本仓库暂未集成测试。若引入：
+  - 单元/组件：Jest + Testing Library；文件命名 *.test.ts(x)，与被测文件同级或 __tests__/。
+  - 端到端：Playwright；核心流程覆盖率优先。
 
-## 提交与 PR
+## 提交与 Pull Request
 - 建议 Conventional Commits：
-  - feat(auth): 支持刷新 Token
-  - fix: 处理空输入崩溃
-  - docs(readme): 补充安装说明
-- PR 需包含：变更说明、关联 Issue（Fixes #123）、必要截图/日志、测试结果与通过的 lint；保持小而可审。
-
-## 安全与配置
-- 使用 .env 与 .env.example；密钥存放于密管/CI Secrets，不入库。
-- 依赖审计：npm audit；pip-audit；go vet/go mod verify。
+  - feat(ui): 增加周视图切换
+  - fix(task): 修复拖拽导致的越界
+  - docs: 更新使用说明
+- PR 要求：清晰描述、关联 Issue、UI 变更附截图/录屏、通过 lint/构建，变更聚焦且可审。
