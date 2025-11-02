@@ -241,7 +241,7 @@ export default function PlannerGrid({ days, tasks, onChangeTasks, anchorDate, on
                   const colorCls = colorClasses(t);
                   return (
                     <div key={t.id}
-                         className={`group absolute left-1 right-1 rounded-md border text-xs px-2 py-1 shadow-sm ${t.done? 'bg-green-200/60 border-green-300 text-green-900 dark:bg-green-900/30 dark:border-green-800 dark:text-green-200 line-through' : isConflict? 'bg-red-100/60 border-red-300 text-red-900 dark:bg-red-900/30 dark:border-red-800 dark:text-red-200' : colorCls} `}
+                         className={`group absolute left-1 right-1 rounded-md border text-xs px-2 py-1 shadow-sm  `}
                          style={{ top, height }}
                          title={`${t.title} (${t.start}-${t.end})`}
                          onMouseDown={(e) => {
@@ -295,4 +295,5 @@ export default function PlannerGrid({ days, tasks, onChangeTasks, anchorDate, on
     </div>
   );
 }
+
 
