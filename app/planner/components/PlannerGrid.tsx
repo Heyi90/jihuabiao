@@ -38,10 +38,12 @@ const COLOR_STYLES: Record<string, {bg: string; border: string; text: string; da
   gray:   { bg: 'bg-zinc-100/60',   border: 'border-zinc-300',   text: 'text-zinc-900',   darkBg: 'dark:bg-zinc-900/30',   darkBorder: 'dark:border-zinc-800',   darkText: 'dark:text-zinc-200' },
 };
 
-function colorClasses(t: Task) {
+function colorClasses(t: Task) {}
+
+function ringClass(t: Task) {
   const c = t.color || 'blue';
-  const s = COLOR_STYLES[c];
-  return `${s.bg} ${s.border} ${s.text} ${s.darkBg} ${s.darkBorder} ${s.darkText}`;
+  return c==='blue'? 'ring-blue-400' : c==='green'? 'ring-green-400' : c==='amber'? 'ring-amber-400' : c==='purple'? 'ring-purple-400' : c==='indigo'? 'ring-indigo-400' : c==='rose'? 'ring-rose-400' : 'ring-zinc-400';
+} ${s.border} ${s.text} ${s.darkBg} ${s.darkBorder} ${s.darkText}`;
 }
 
 function clamp(n: number, min: number, max: number) { return Math.max(min, Math.min(max, n)); }
@@ -239,7 +241,7 @@ export default function PlannerGrid({ days, tasks, onChangeTasks, anchorDate, on
                   const colorCls = colorClasses(t);
                   return (
                     <div key={t.id}
-                         className={`group absolute left-1 right-1 rounded-md border text-xs px-2 py-1 shadow-sm ${t.done? 'bg-green-200/60 border-green-300 text-green-900 dark:bg-green-900/30 dark:border-green-800 dark:text-green-200 line-through' : isConflict? 'bg-red-100/60 border-red-300 text-red-900 dark:bg-red-900/30 dark:border-red-800 dark:text-red-200' : colorCls} ${isSel?'ring-2 ring-blue-400':''}`}
+                         className={`group absolute left-1 right-1 rounded-md border text-xs px-2 py-1 shadow-sm ${t.done? 'bg-green-200/60 border-green-300 text-green-900 dark:bg-green-900/30 dark:border-green-800 dark:text-green-200 line-through' : isConflict? 'bg-red-100/60 border-red-300 text-red-900 dark:bg-red-900/30 dark:border-red-800 dark:text-red-200' : colorCls} `}
                          style={{ top, height }}
                          title={`${t.title} (${t.start}-${t.end})`}
                          onMouseDown={(e) => {
@@ -293,3 +295,4 @@ export default function PlannerGrid({ days, tasks, onChangeTasks, anchorDate, on
     </div>
   );
 }
+
