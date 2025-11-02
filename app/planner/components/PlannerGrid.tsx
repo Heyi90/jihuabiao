@@ -112,6 +112,10 @@ export default function PlannerGrid({ days, tasks, onChangeTasks }: Props) {
     onChangeTasks(tasks.map(t => t.id===id ? updater(t) : t));
   }, [tasks, onChangeTasks]);
 
+  const toggleDone = useCallback((id: string) => {
+    updateTask(id, t => ({ ...t, done: !t.done }));
+  }, [updateTask]);
+
   const handleCreateAt = useCallback((col: number, clientY: number) => {
     if (!onChangeTasks || !gridRef.current) return;
     const rect = gridRef.current.getBoundingClientRect();
@@ -207,9 +211,10 @@ export default function PlannerGrid({ days, tasks, onChangeTasks }: Props) {
       onMouseUp={onMouseUp}
       tabIndex={0}
       onKeyDown={(e) => {
-        if (e.key === 'Delete') {
-          e.preventDefault();
-          removeSelected();
+        if (e.key === 'Delete') { e.preventDefault(); removeSelected(); }
+        if (e.key === 'Escape') { e.preventDefault(); setSelectedId(null); }
+        if (e.key === ' ' || e.key === 'Spacebar' || e.code === 'Space') {
+          e.preventDefault(); if (selectedId) toggleDone(selectedId);
         }
       }}
     >
@@ -288,7 +293,14 @@ export default function PlannerGrid({ days, tasks, onChangeTasks }: Props) {
                         <>
                           <div className="truncate flex items-center justify-between">
                             <span>{t.title}</span>
-                            {isConflict && <span className="ml-2 rounded bg-red-500/80 px-1 text-[10px] leading-4 text-white">冲突</span>}
+                            <div className="flex items-center gap-2">
+                              {isConflict && <span className="ml-1 rounded bg-red-500/80 px-1 text-[10px] leading-4 text-white">冲突</span>}
+                              <button
+                                aria-label="toggle done"
+                                className={`h-4 w-4 rounded border text-[10px] leading-3 ${t.done?'bg-green-500 text-white border-green-600':'bg-white/60 dark:bg-zinc-900/60'}`}
+                                onClick={(e) => { (e as any).stopPropagation(); toggleDone(t.id); }}
+                              >{t.done ? 'x' : ''}</button>
+                            </div>
                           </div>
                           <div className="opacity-70">{t.start} - {t.end}</div>
                           {/* resize handles */}
