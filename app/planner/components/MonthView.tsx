@@ -9,26 +9,34 @@ function startOfDay(d: Date) { const x = new Date(d); x.setHours(0,0,0,0); retur
 function addDays(d: Date, n: number) { const x = new Date(d); x.setDate(x.getDate()+n); return x; }
 function sameDate(a: Date, b: Date) { return a.getFullYear()===b.getFullYear() && a.getMonth()===b.getMonth() && a.getDate()===b.getDate(); }
 
+function chipClass(t: Task) {
+  const c = t.color || 'blue';
+  const base = c==='blue'? 'bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-200'
+    : c==='green'? 'bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-200'
+    : c==='amber'? 'bg-amber-100 text-amber-800 dark:bg-amber-900/30 dark:text-amber-200'
+    : c==='purple'? 'bg-purple-100 text-purple-800 dark:bg-purple-900/30 dark:text-purple-200'
+    : c==='indigo'? 'bg-indigo-100 text-indigo-800 dark:bg-indigo-900/30 dark:text-indigo-200'
+    : c==='rose'? 'bg-rose-100 text-rose-800 dark:bg-rose-900/30 dark:text-rose-200'
+    : 'bg-zinc-100 text-zinc-800 dark:bg-zinc-900/30 dark:text-zinc-200';
+  return t.done ? `${base} line-through opacity-70` : base;
+}
+
 export default function MonthView({ tasks, anchorDate }: { tasks: Task[]; anchorDate: Date }) {
   const today = startOfDay(anchorDate);
   const monthStart = startOfDay(new Date(today.getFullYear(), today.getMonth(), 1));
-  // 将日历起始对齐到周一（中国地区常用）
-  const dow = (monthStart.getDay()+6)%7; // 0..6, 周一=0
+  const dow = (monthStart.getDay()+6)%7; // 周一=0
   const viewStart = addDays(monthStart, -dow);
-  const cells: Date[] = Array.from({ length: 42 }, (_, i) => addDays(viewStart, i)); // 6 行 * 7 列
+  const cells: Date[] = Array.from({ length: 42 }, (_, i) => addDays(viewStart, i));
 
-  // 计算每个任务的绝对日期：以 anchorDate 为基准
   const tasksWithDate = tasks.map(t => ({ task: t, date: addDays(today, t.dayIndex) }));
 
   return (
     <div className="flex h-full flex-col">
-      {/* 星期抬头 */}
       <div className="grid grid-cols-7 border-b text-center text-xs text-zinc-600 dark:text-zinc-400">
         {WEEK_LABELS.map((w, i) => (
           <div key={i} className="border-r px-2 py-2 last:border-r-0">周{w}</div>
         ))}
       </div>
-      {/* 月视图网格 */}
       <div className="grid flex-1 grid-cols-7 grid-rows-6">
         {cells.map((d, idx) => {
           const inMonth = d.getMonth() === today.getMonth();
@@ -43,7 +51,7 @@ export default function MonthView({ tasks, anchorDate }: { tasks: Task[]; anchor
               </div>
               <div className="space-y-1">
                 {shown.map(t => (
-                  <div key={t.id} className={`truncate rounded px-1 py-0.5 ${t.done? 'bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-200 line-through' : 'bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-200'}`}>{t.title}</div>
+                  <div key={t.id} className={`truncate rounded px-1 py-0.5 ${chipClass(t)}`}>{t.title}</div>
                 ))}
                 {more>0 && <div className="truncate text-[10px] text-zinc-500">+{more} 更多</div>}
               </div>
