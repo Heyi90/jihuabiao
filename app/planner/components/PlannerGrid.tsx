@@ -13,32 +13,31 @@ export type Task = {
   done?: boolean;
 };
 
-type Props = {\n  days: number;\n  tasks: Task[];\n  onChangeTasks?: (tasks: Task[]) => void;\n  anchorDate?: Date; // 作为 dayIndex=0 的日期\n};
+type Props = {
+  days: number;
+  tasks: Task[];
+  onChangeTasks?: (tasks: Task[]) => void;
+  anchorDate?: Date; // the date corresponding to dayIndex=0
+};
 
-const HOUR_PX = 48; // 每小时高度
+const HOUR_PX = 48; // pixels per hour
 const START_HOUR = 6;
-const END_HOUR = 23; // 含尾端显示，但高度计算以 (END-START) 小时
+const END_HOUR = 23; // end bound (exclusive for height)
 const RANGE_MINUTES = (END_HOUR - START_HOUR) * 60;
-const SNAP_MIN = 15; // 邻近任务吸附阈值（分钟）
+const SNAP_MIN = 15; // snap-to-neighbor threshold in minutes
 
 function clamp(n: number, min: number, max: number) { return Math.max(min, Math.min(max, n)); }
-
-function timeToMinutes(t: string) {
-  const [hh, mm] = t.split(':').map(Number); return hh*60+mm;
-}
-function minutesToTime(m: number) {
-  const hh = Math.floor(m/60), mm = m%60; return `${String(hh).padStart(2,'0')}:${String(mm).padStart(2,'0')}`;
-}
+function timeToMinutes(t: string) { const [hh, mm] = t.split(':').map(Number); return hh*60+mm; }
+function minutesToTime(m: number) { const hh = Math.floor(m/60), mm = m%60; return `${String(hh).padStart(2,'0')}:${String(mm).padStart(2,'0')}`; }
 function snap30(mins: number) { return Math.round(mins/30)*30; }
-
 function timeToOffsetPx(t: string) {
-  const mins = timeToMinutes(t) - START_HOUR*60; // 相对 06:00
+  const mins = timeToMinutes(t) - START_HOUR*60; // relative to 06:00
   const frac = clamp(mins / RANGE_MINUTES, 0, 1);
   return frac * ((END_HOUR - START_HOUR) * HOUR_PX);
 }
 function minutesBetween(start: string, end: string) { return timeToMinutes(end) - timeToMinutes(start); }
 
-// 返回同列任务边界（开始/结束分钟）的集合，用于吸附
+// collect neighbor boundaries for snap (start/end minutes of tasks in same day)
 function dayBoundaries(tasks: Task[], dayIndex: number, excludeId?: string) {
   const set = new Set<number>();
   for (const t of tasks) {
@@ -49,7 +48,7 @@ function dayBoundaries(tasks: Task[], dayIndex: number, excludeId?: string) {
   return Array.from(set.values()).sort((a,b)=>a-b);
 }
 
-// 检测冲突任务 id 集合
+// compute overlapping tasks (same column)
 function computeConflicts(tasks: Task[]) {
   const conflicts = new Set<string>();
   const byDay = new Map<number, Task[]>();
@@ -57,14 +56,12 @@ function computeConflicts(tasks: Task[]) {
     const arr = byDay.get(t.dayIndex) ?? [];
     arr.push(t); byDay.set(t.dayIndex, arr);
   }
-  for (const [_, arr] of byDay) {
+  for (const arr of byDay.values()) {
     const sorted = arr.slice().sort((a,b)=> timeToMinutes(a.start) - timeToMinutes(b.start));
     let prev: Task | null = null;
     for (const cur of sorted) {
       if (prev) {
-        const prevEnd = timeToMinutes(prev.end);
-        const curStart = timeToMinutes(cur.start);
-        if (curStart < prevEnd) { // overlap
+        if (timeToMinutes(cur.start) < timeToMinutes(prev.end)) {
           conflicts.add(prev.id); conflicts.add(cur.id);
         }
       }
@@ -74,31 +71,25 @@ function computeConflicts(tasks: Task[]) {
   return conflicts;
 }
 
-export default function PlannerGrid({ days, tasks, onChangeTasks }: Props) {
+export default function PlannerGrid({ days, tasks, onChangeTasks, anchorDate }: Props) {
   const hours = hoursRange(START_HOUR, END_HOUR);
   const gridRef = useRef<HTMLDivElement>(null);
   const containerRef = useRef<HTMLDivElement>(null);
   const [selectedId, setSelectedId] = useState<string | null>(null);
-  const [drag, setDrag] = useState<null | {
-    id: string;
-    type: 'move' | 'resize-top' | 'resize-bottom';
-    startClientX: number;
-    startClientY: number;
-    orig: Task;
-    duration: number; // minutes
-  }>(null);
+  const [drag, setDrag] = useState<null | { id: string; type: 'move' | 'resize-top' | 'resize-bottom'; startClientX: number; startClientY: number; orig: Task; duration: number; }>(null);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [editingTitle, setEditingTitle] = useState<string>('');
-  const [guideY, setGuideY] = useState<number | null>(null); // 吸附指示线
+  const [guideY, setGuideY] = useState<number | null>(null); // snap guide line
 
   const heightPx = (hours.length - 1) * HOUR_PX;
 
-  const dayLabels = useMemo(() => {\n    const base = new Date(anchorDate ?? new Date()); base.setHours(0,0,0,0);\n    return Array.from({length: days}, (_, i) => {\n      const d = new Date(base); d.setDate(base.getDate() + i);\n      return ${d.getMonth()+1}/;\n    });\n  }, [days, anchorDate]); base.setHours(0,0,0,0);
+  const dayLabels = useMemo(() => {
+    const base = new Date(anchorDate ?? new Date()); base.setHours(0,0,0,0);
     return Array.from({length: days}, (_, i) => {
       const d = new Date(base); d.setDate(base.getDate() + i);
       return `${d.getMonth()+1}/${d.getDate()}`;
     });
-  }, [days]);
+  }, [days, anchorDate]);
 
   const conflictIds = useMemo(() => computeConflicts(tasks), [tasks]);
 
@@ -107,9 +98,7 @@ export default function PlannerGrid({ days, tasks, onChangeTasks }: Props) {
     onChangeTasks(tasks.map(t => t.id===id ? updater(t) : t));
   }, [tasks, onChangeTasks]);
 
-  const toggleDone = useCallback((id: string) => {
-    updateTask(id, t => ({ ...t, done: !t.done }));
-  }, [updateTask]);
+  const toggleDone = useCallback((id: string) => { updateTask(id, t => ({ ...t, done: !t.done })); }, [updateTask]);
 
   const handleCreateAt = useCallback((col: number, clientY: number) => {
     if (!onChangeTasks || !gridRef.current) return;
@@ -117,27 +106,17 @@ export default function PlannerGrid({ days, tasks, onChangeTasks }: Props) {
     const relY = clamp(clientY - rect.top, 0, heightPx);
     const minutesFromStart = snap30(Math.round(relY / heightPx * RANGE_MINUTES));
     let startMin = START_HOUR*60 + minutesFromStart;
-    let endMin = startMin + 60; // 默认 60 分钟
+    let endMin = startMin + 60; // default 60min
     if (endMin > END_HOUR*60) { endMin = END_HOUR*60; startMin = Math.max(START_HOUR*60, endMin - 60); }
-    const newTask: Task = {
-      id: 't' + Math.random().toString(36).slice(2,8),
-      title: '新任务',
-      dayIndex: clamp(col, 0, days-1),
-      start: minutesToTime(startMin),
-      end: minutesToTime(endMin),
-    };
+    const newTask: Task = { id: 't' + Math.random().toString(36).slice(2,8), title: '新任务', dayIndex: clamp(col, 0, days-1), start: minutesToTime(startMin), end: minutesToTime(endMin) };
     onChangeTasks([...tasks, newTask]);
     setSelectedId(newTask.id);
   }, [days, heightPx, onChangeTasks, tasks]);
 
-  // 邻近任务吸附：若接近同列任务边界 <= SNAP_MIN，则优先吸附
   const snapToNeighbors = useCallback((dayIndex: number, minsAbs: number, excludeId?: string) => {
     const boundaries = dayBoundaries(tasks, dayIndex, excludeId);
-    let snapped: number | null = null;
-    for (const b of boundaries) {
-      if (Math.abs(b - minsAbs) <= SNAP_MIN) { snapped = b; break; }
-    }
-    return snapped;
+    for (const b of boundaries) { if (Math.abs(b - minsAbs) <= SNAP_MIN) return b; }
+    return null;
   }, [tasks]);
 
   const onMouseMove = useCallback((e: React.MouseEvent) => {
@@ -148,28 +127,26 @@ export default function PlannerGrid({ days, tasks, onChangeTasks }: Props) {
     const relY = clamp(e.clientY - rect.top, 0, heightPx);
     const dayIndex = clamp(Math.floor(relX / colWidth), 0, days-1);
 
-    // y -> minutes from 06:00
+    // relative minutes from 06:00
     let minutesFromStart = Math.round(relY / heightPx * RANGE_MINUTES);
     let minsAbs = START_HOUR*60 + minutesFromStart;
     const snappedAbs = snapToNeighbors(dayIndex, minsAbs, drag.id);
     if (snappedAbs != null) {
       minsAbs = snappedAbs;
       minutesFromStart = minsAbs - START_HOUR*60;
-      // 指示线位置
       setGuideY((minutesFromStart / RANGE_MINUTES) * ((END_HOUR-START_HOUR)*HOUR_PX));
     } else {
       setGuideY(null);
     }
 
-    // 30 分钟对齐（在吸附后再对齐）
     const snappedFromStart = snap30(minutesFromStart);
     const currentStart = START_HOUR*60 + snappedFromStart;
 
     if (drag.type === 'move') {
       const newStart = clamp(currentStart, START_HOUR*60, END_HOUR*60);
       let newEnd = newStart + drag.duration;
-      if (newEnd > END_HOUR*60) { newEnd = END_HOUR*60; }
-      const fixedStart = newEnd - drag.duration; // 保持时长
+      if (newEnd > END_HOUR*60) newEnd = END_HOUR*60;
+      const fixedStart = newEnd - drag.duration; // keep duration
       updateTask(drag.id, t => ({ ...t, dayIndex, start: minutesToTime(fixedStart), end: minutesToTime(newEnd) }));
     } else if (drag.type === 'resize-top') {
       const endMin = timeToMinutes(drag.orig.end);
@@ -187,9 +164,7 @@ export default function PlannerGrid({ days, tasks, onChangeTasks }: Props) {
   const commitEdit = useCallback(() => {
     if (!editingId) return;
     const title = editingTitle.trim();
-    if (title && onChangeTasks) {
-      updateTask(editingId, t => ({ ...t, title }));
-    }
+    if (title && onChangeTasks) updateTask(editingId, t => ({ ...t, title }));
     setEditingId(null);
   }, [editingId, editingTitle, onChangeTasks, updateTask]);
 
@@ -208,9 +183,7 @@ export default function PlannerGrid({ days, tasks, onChangeTasks }: Props) {
       onKeyDown={(e) => {
         if (e.key === 'Delete') { e.preventDefault(); removeSelected(); }
         if (e.key === 'Escape') { e.preventDefault(); setSelectedId(null); }
-        if (e.key === ' ' || e.key === 'Spacebar' || e.code === 'Space') {
-          e.preventDefault(); if (selectedId) toggleDone(selectedId);
-        }
+        if (e.key === ' ' || e.key === 'Spacebar' || e.code === 'Space') { e.preventDefault(); if (selectedId) toggleDone(selectedId); }
       }}
     >
       <TimelineY />
@@ -225,25 +198,20 @@ export default function PlannerGrid({ days, tasks, onChangeTasks }: Props) {
         </div>
         {/* Grid body: 06:00-23:00, 1h rows with half-hour minor lines */}
         <div ref={gridRef} className="relative cursor-default select-none" onMouseMove={onMouseMove}>
-          {/* hour rows background */}
           {hours.map((_, row) => (
             <div key={row} className="pointer-events-none absolute left-0 right-0 border-t border-dashed border-zinc-200 dark:border-zinc-800" style={{ top: `${row*HOUR_PX}px`}} />
           ))}
-          {/* half-hour minor lines */}
           {hours.slice(0,-1).map((_, row) => (
             <div key={'h'+row} className="pointer-events-none absolute left-0 right-0 border-t border-zinc-100 dark:border-zinc-900" style={{ top: `${row*HOUR_PX+HOUR_PX/2}px`}} />
           ))}
 
-          {/* 吸附指示线 */}
           {guideY!=null && (
             <div className="pointer-events-none absolute left-0 right-0 border-t border-blue-400/70 dark:border-blue-500/70" style={{ top: `${guideY}px`}} />
           )}
 
-          {/* columns */}
           <div className="relative flex" style={{ height: `${(hours.length-1)*HOUR_PX}px`}}>
             {dayLabels.map((_, col) => (
               <div key={col} className="relative flex-1 border-r" onDoubleClick={(e) => handleCreateAt(col, e.clientY)}>
-                {/* tasks for this column */}
                 {tasks.filter(t => t.dayIndex===col).map(t => {
                   const top = timeToOffsetPx(t.start);
                   const height = Math.max(HOUR_PX/2, minutesBetween(t.start, t.end) / 60 * HOUR_PX);
@@ -256,7 +224,7 @@ export default function PlannerGrid({ days, tasks, onChangeTasks }: Props) {
                          style={{ top, height }}
                          title={`${t.title} (${t.start}-${t.end})`}
                          onMouseDown={(e) => {
-                           if (isEdit) return; // 编辑时不允许拖动
+                           if (isEdit) return; // no drag while editing
                            const target = e.target as HTMLElement;
                            if (target.dataset && (target.dataset as any).handle) return;
                            const clone = (e as any).altKey || (e as any).ctrlKey;
@@ -279,10 +247,7 @@ export default function PlannerGrid({ days, tasks, onChangeTasks }: Props) {
                           value={editingTitle}
                           onChange={(e) => setEditingTitle((e as any).target.value)}
                           onBlur={commitEdit}
-                          onKeyDown={(e) => {
-                            if ((e as any).key==='Enter') commitEdit();
-                            if ((e as any).key==='Escape') setEditingId(null);
-                          }}
+                          onKeyDown={(e) => { if ((e as any).key==='Enter') commitEdit(); if ((e as any).key==='Escape') setEditingId(null); }}
                         />
                       ) : (
                         <>
@@ -290,25 +255,12 @@ export default function PlannerGrid({ days, tasks, onChangeTasks }: Props) {
                             <span>{t.title}</span>
                             <div className="flex items-center gap-2">
                               {isConflict && <span className="ml-1 rounded bg-red-500/80 px-1 text-[10px] leading-4 text-white">冲突</span>}
-                              <button
-                                aria-label="toggle done"
-                                className={`h-4 w-4 rounded border text-[10px] leading-3 ${t.done?'bg-green-500 text-white border-green-600':'bg-white/60 dark:bg-zinc-900/60'}`}
-                                onClick={(e) => { (e as any).stopPropagation(); toggleDone(t.id); }}
-                              >{t.done ? 'x' : ''}</button>
+                              <button aria-label="toggle done" className={`h-4 w-4 rounded border text-[10px] leading-3 ${t.done?'bg-green-500 text-white border-green-600':'bg-white/60 dark:bg-zinc-900/60'}`} onClick={(e) => { (e as any).stopPropagation(); toggleDone(t.id); }}>{t.done ? 'x' : ''}</button>
                             </div>
                           </div>
                           <div className="opacity-70">{t.start} - {t.end}</div>
-                          {/* resize handles */}
-                          <div
-                            data-handle
-                            onMouseDown={(e) => { (e as any).stopPropagation(); setSelectedId(t.id); setDrag({ id: t.id, type: 'resize-top', startClientX: (e as any).clientX, startClientY: (e as any).clientY, orig: t, duration: minutesBetween(t.start, t.end) }); }}
-                            className="absolute -top-1 left-1 right-1 h-2 cursor-n-resize rounded bg-blue-400/50 opacity-0 transition-opacity group-hover:opacity-100 dark:bg-blue-600/50"
-                          />
-                          <div
-                            data-handle
-                            onMouseDown={(e) => { (e as any).stopPropagation(); setSelectedId(t.id); setDrag({ id: t.id, type: 'resize-bottom', startClientX: (e as any).clientX, startClientY: (e as any).clientY, orig: t, duration: minutesBetween(t.start, t.end) }); }}
-                            className="absolute -bottom-1 left-1 right-1 h-2 cursor-s-resize rounded bg-blue-400/50 opacity-0 transition-opacity group-hover:opacity-100 dark:bg-blue-600/50"
-                          />
+                          <div data-handle onMouseDown={(e) => { (e as any).stopPropagation(); setSelectedId(t.id); setDrag({ id: t.id, type: 'resize-top', startClientX: (e as any).clientX, startClientY: (e as any).clientY, orig: t, duration: minutesBetween(t.start, t.end) }); }} className="absolute -top-1 left-1 right-1 h-2 cursor-n-resize rounded bg-blue-400/50 opacity-0 transition-opacity group-hover:opacity-100 dark:bg-blue-600/50" />
+                          <div data-handle onMouseDown={(e) => { (e as any).stopPropagation(); setSelectedId(t.id); setDrag({ id: t.id, type: 'resize-bottom', startClientX: (e as any).clientX, startClientY: (e as any).clientY, orig: t, duration: minutesBetween(t.start, t.end) }); }} className="absolute -bottom-1 left-1 right-1 h-2 cursor-s-resize rounded bg-blue-400/50 opacity-0 transition-opacity group-hover:opacity-100 dark:bg-blue-600/50" />
                         </>
                       )}
                     </div>
@@ -322,4 +274,3 @@ export default function PlannerGrid({ days, tasks, onChangeTasks }: Props) {
     </div>
   );
 }
-
