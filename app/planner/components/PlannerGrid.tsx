@@ -52,6 +52,8 @@ export default function PlannerGrid({ days, tasks, onChangeTasks }: Props) {
     orig: Task;
     duration: number; // minutes
   }>(null);
+  const [editingId, setEditingId] = useState<string | null>(null);
+  const [editingTitle, setEditingTitle] = useState<string>('');
 
   const heightPx = (hours.length - 1) * HOUR_PX;
 
@@ -67,6 +69,25 @@ export default function PlannerGrid({ days, tasks, onChangeTasks }: Props) {
     if (!onChangeTasks) return;
     onChangeTasks(tasks.map(t => t.id===id ? updater(t) : t));
   }, [tasks, onChangeTasks]);
+
+  const handleCreateAt = useCallback((col: number, clientY: number) => {
+    if (!onChangeTasks || !gridRef.current) return;
+    const rect = gridRef.current.getBoundingClientRect();
+    const relY = clamp(clientY - rect.top, 0, heightPx);
+    const minutesFromStart = snap30(Math.round(relY / heightPx * RANGE_MINUTES));
+    let startMin = START_HOUR*60 + minutesFromStart;
+    let endMin = startMin + 60; // 默认 60 分钟
+    if (endMin > END_HOUR*60) { endMin = END_HOUR*60; startMin = Math.max(START_HOUR*60, endMin - 60); }
+    const newTask: Task = {
+      id: 't' + Math.random().toString(36).slice(2,8),
+      title: '新任务',
+      dayIndex: clamp(col, 0, days-1),
+      start: minutesToTime(startMin),
+      end: minutesToTime(endMin),
+    };
+    onChangeTasks([...tasks, newTask]);
+    setSelectedId(newTask.id);
+  }, [days, heightPx, onChangeTasks, tasks]);
 
   const onMouseMove = useCallback((e: React.MouseEvent) => {
     if (!drag || !gridRef.current) return;
@@ -100,10 +121,19 @@ export default function PlannerGrid({ days, tasks, onChangeTasks }: Props) {
 
   const onMouseUp = useCallback(() => setDrag(null), []);
 
+  const commitEdit = useCallback(() => {
+    if (!editingId) return;
+    const title = editingTitle.trim();
+    if (title && onChangeTasks) {
+      updateTask(editingId, t => ({ ...t, title }));
+    }
+    setEditingId(null);
+  }, [editingId, editingTitle, onChangeTasks, updateTask]);
+
   return (
     <div className="flex overflow-auto" onMouseUp={onMouseUp}>
       <TimelineY />
-      <div className="min-w-0 flex-1" onMouseMove={onMouseMove}>
+      <div className="min-w-0 flex-1">
         {/* Header with day labels */}
         <div className="sticky top-0 z-10 flex bg-background/95 backdrop-blur border-b">
           {dayLabels.map((label, i) => (
@@ -113,7 +143,7 @@ export default function PlannerGrid({ days, tasks, onChangeTasks }: Props) {
           ))}
         </div>
         {/* Grid body: 06:00-23:00, 1h rows with half-hour minor lines */}
-        <div ref={gridRef} className="relative cursor-default select-none">
+        <div ref={gridRef} className="relative cursor-default select-none" onMouseMove={onMouseMove}>
           {/* hour rows background */}
           {hours.map((_, row) => (
             <div key={row} className="pointer-events-none absolute left-0 right-0 border-t border-dashed border-zinc-200 dark:border-zinc-800" style={{ top: ${row*HOUR_PX}px}} />
@@ -125,38 +155,56 @@ export default function PlannerGrid({ days, tasks, onChangeTasks }: Props) {
           {/* columns */}
           <div className="relative flex" style={{ height: ${(hours.length-1)*HOUR_PX}px}}>
             {dayLabels.map((_, col) => (
-              <div key={col} className="relative flex-1 border-r">
+              <div key={col} className="relative flex-1 border-r" onDoubleClick={(e) => handleCreateAt(col, e.clientY)}>
                 {/* tasks for this column */}
                 {tasks.filter(t => t.dayIndex===col).map(t => {
                   const top = timeToOffsetPx(t.start);
                   const height = Math.max(HOUR_PX/2, minutesBetween(t.start, t.end) / 60 * HOUR_PX);
                   const isSel = selectedId===t.id;
+                  const isEdit = editingId===t.id;
                   return (
                     <div key={t.id}
                          className={group absolute left-1 right-1 rounded-md border text-xs px-2 py-1 shadow-sm  }
                          style={{ top, height }}
                          title={${t.title} (-)}
                          onMouseDown={(e) => {
-                           // 忽略从 handle 开始的 mousedown（由 handle 自己处理）
+                           if (isEdit) return; // 编辑时不允许拖动
                            const target = e.target as HTMLElement;
                            if (target.dataset && target.dataset.handle) return;
                            setSelectedId(t.id);
                            setDrag({ id: t.id, type: 'move', startClientX: e.clientX, startClientY: e.clientY, orig: t, duration: minutesBetween(t.start, t.end) });
                          }}
+                         onDoubleClick={(e) => { e.stopPropagation(); setEditingId(t.id); setEditingTitle(t.title); }}
                     >
-                      <div className="truncate">{t.title}</div>
-                      <div className="opacity-70">{t.start} - {t.end}</div>
-                      {/* resize handles */}
-                      <div
-                        data-handle
-                        onMouseDown={(e) => { e.stopPropagation(); setSelectedId(t.id); setDrag({ id: t.id, type: 'resize-top', startClientX: e.clientX, startClientY: e.clientY, orig: t, duration: minutesBetween(t.start, t.end) }); }}
-                        className="absolute -top-1 left-1 right-1 h-2 cursor-n-resize rounded bg-blue-400/50 opacity-0 transition-opacity group-hover:opacity-100 dark:bg-blue-600/50"
-                      />
-                      <div
-                        data-handle
-                        onMouseDown={(e) => { e.stopPropagation(); setSelectedId(t.id); setDrag({ id: t.id, type: 'resize-bottom', startClientX: e.clientX, startClientY: e.clientY, orig: t, duration: minutesBetween(t.start, t.end) }); }}
-                        className="absolute -bottom-1 left-1 right-1 h-2 cursor-s-resize rounded bg-blue-400/50 opacity-0 transition-opacity group-hover:opacity-100 dark:bg-blue-600/50"
-                      />
+                      {isEdit ? (
+                        <input
+                          autoFocus
+                          className="w-full rounded border border-blue-400 bg-white/90 px-1 py-0.5 text-blue-900 outline-none dark:bg-zinc-900/90 dark:text-zinc-100"
+                          value={editingTitle}
+                          onChange={(e) => setEditingTitle(e.target.value)}
+                          onBlur={commitEdit}
+                          onKeyDown={(e) => {
+                            if (e.key==='Enter') commitEdit();
+                            if (e.key==='Escape') setEditingId(null);
+                          }}
+                        />
+                      ) : (
+                        <>
+                          <div className="truncate">{t.title}</div>
+                          <div className="opacity-70">{t.start} - {t.end}</div>
+                          {/* resize handles */}
+                          <div
+                            data-handle
+                            onMouseDown={(e) => { e.stopPropagation(); setSelectedId(t.id); setDrag({ id: t.id, type: 'resize-top', startClientX: e.clientX, startClientY: e.clientY, orig: t, duration: minutesBetween(t.start, t.end) }); }}
+                            className="absolute -top-1 left-1 right-1 h-2 cursor-n-resize rounded bg-blue-400/50 opacity-0 transition-opacity group-hover:opacity-100 dark:bg-blue-600/50"
+                          />
+                          <div
+                            data-handle
+                            onMouseDown={(e) => { e.stopPropagation(); setSelectedId(t.id); setDrag({ id: t.id, type: 'resize-bottom', startClientX: e.clientX, startClientY: e.clientY, orig: t, duration: minutesBetween(t.start, t.end) }); }}
+                            className="absolute -bottom-1 left-1 right-1 h-2 cursor-s-resize rounded bg-blue-400/50 opacity-0 transition-opacity group-hover:opacity-100 dark:bg-blue-600/50"
+                          />
+                        </>
+                      )}
                     </div>
                   );
                 })}
