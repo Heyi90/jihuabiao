@@ -12,7 +12,7 @@ export default function TimelineY() {
     <div className="sticky left-0 z-10 w-16 select-none bg-background">
       {hours.map((h, i) => (
         <div key={h} className="relative h-12 text-xs text-zinc-500">
-          <span className="absolute -top-2 right-1">{h}</span>
+          <span className={`absolute right-1 ${i===0 ? 'top-0' : '-top-2'}`}>{h}</span>
         </div>
       ))}
     </div>
