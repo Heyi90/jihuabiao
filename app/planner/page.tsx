@@ -29,7 +29,7 @@ export default function PlannerPage() {
     { id: 't4', title: '学习-前端', dayIndex: 2, start: '20:00', end: '22:00' },
     { id: 't5', title: '运动', dayIndex: 4, start: '18:30', end: '19:30' },
   ]);
-  const [selectedTaskId, setSelectedTaskId] = useState<string | null>(null);
+  const [selectedTaskIds, setSelectedTaskIds] = useState<string[]>([]);
 
   // adjust default days when switching views
   useMemo(() => {
@@ -75,18 +75,18 @@ export default function PlannerPage() {
         onPrev={onPrev}
         onNext={onNext}
         onToday={onToday}
-        rangeLabel={rangeLabel}
-        selectedTaskId={selectedTaskId}
+        rangeLabel={rangeLabel}\n        selectedTaskIds={selectedTaskIds}
         onChangeTaskColor={(c) => setTasks(prev => prev.map(t => t.id===selectedTaskId ? { ...t, color: c } : t))}
-        extraRight={<ExportMenu days={days} tasks={derivedTasks} anchorDate={anchorDate} />}
-      />
+        onChangeTaskColor={(c) => setTasks(prev => prev.map(t => (selectedTaskIds.includes(t.id) ? { ...t, color: c } : t)))}\n        extraRight={<ExportMenu days={days} tasks={derivedTasks} anchorDate={anchorDate} />}\n      />
       <div className="flex-1">
         {view === 'month' ? (
           <MonthView tasks={derivedTasks} anchorDate={anchorDate} />
         ) : (
-          <PlannerGrid days={days} tasks={derivedTasks} onChangeTasks={applyDerivedTasks} anchorDate={anchorDate} onSelectTask={setSelectedTaskId} />
+          <PlannerGrid days={days} tasks={derivedTasks} onChangeTasks={applyDerivedTasks} anchorDate={anchorDate} onSelectTasks={setSelectedTaskIds} />
         )}
       </div>
     </div>
   );
 }
+
+
