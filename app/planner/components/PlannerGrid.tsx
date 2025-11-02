@@ -43,6 +43,7 @@ function minutesBetween(start: string, end: string) { return timeToMinutes(end) 
 export default function PlannerGrid({ days, tasks, onChangeTasks }: Props) {
   const hours = hoursRange(START_HOUR, END_HOUR);
   const gridRef = useRef<HTMLDivElement>(null);
+  const containerRef = useRef<HTMLDivElement>(null);
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [drag, setDrag] = useState<null | {
     id: string;
@@ -130,8 +131,25 @@ export default function PlannerGrid({ days, tasks, onChangeTasks }: Props) {
     setEditingId(null);
   }, [editingId, editingTitle, onChangeTasks, updateTask]);
 
+  const removeSelected = useCallback(() => {
+    if (!selectedId || !onChangeTasks) return;
+    onChangeTasks(tasks.filter(t => t.id !== selectedId));
+    setSelectedId(null);
+  }, [onChangeTasks, selectedId, tasks]);
+
   return (
-    <div className="flex overflow-auto" onMouseUp={onMouseUp}>
+    <div
+      ref={containerRef}
+      className="flex overflow-auto outline-none"
+      onMouseUp={onMouseUp}
+      tabIndex={0}
+      onKeyDown={(e) => {
+        if (e.key === 'Delete') {
+          e.preventDefault();
+          removeSelected();
+        }
+      }}
+    >
       <TimelineY />
       <div className="min-w-0 flex-1">
         {/* Header with day labels */}
@@ -171,8 +189,16 @@ export default function PlannerGrid({ days, tasks, onChangeTasks }: Props) {
                            if (isEdit) return; // 编辑时不允许拖动
                            const target = e.target as HTMLElement;
                            if (target.dataset && target.dataset.handle) return;
-                           setSelectedId(t.id);
-                           setDrag({ id: t.id, type: 'move', startClientX: e.clientX, startClientY: e.clientY, orig: t, duration: minutesBetween(t.start, t.end) });
+                           const clone = e.altKey || e.ctrlKey;
+                           if (clone && onChangeTasks) {
+                             const copy: Task = { ...t, id: 't'+Math.random().toString(36).slice(2,8) };
+                             onChangeTasks([...tasks, copy]);
+                             setSelectedId(copy.id);
+                             setDrag({ id: copy.id, type: 'move', startClientX: e.clientX, startClientY: e.clientY, orig: copy, duration: minutesBetween(copy.start, copy.end) });
+                           } else {
+                             setSelectedId(t.id);
+                             setDrag({ id: t.id, type: 'move', startClientX: e.clientX, startClientY: e.clientY, orig: t, duration: minutesBetween(t.start, t.end) });
+                           }
                          }}
                          onDoubleClick={(e) => { e.stopPropagation(); setEditingId(t.id); setEditingTitle(t.title); }}
                     >
