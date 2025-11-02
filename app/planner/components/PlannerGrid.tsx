@@ -235,7 +235,7 @@ export default function PlannerGrid({ days, tasks, onChangeTasks, anchorDate, on
     <div ref={containerRef} className="flex overflow-auto outline-none" onMouseUp={onMouseUp} tabIndex={0} onKeyDown={(e) => {
       if (e.key === 'Delete') { e.preventDefault(); removeSelected(); }
       if (e.key === 'Escape') { e.preventDefault(); setSel([]); }
-      if (e.key === ' ' || e.key === 'Spacebar' || e.code === 'Space') { e.preventDefault(); if (selectedIds.length && onChangeTasks) { const set = new Set(selectedIds); const next = tasks.map(t => set.has(t.id) ? { ...t, done: !t.done } : t); onChangeTasks(next); } } : x)); } }); }
+      if (e.key === ' ' || e.key === 'Spacebar' || e.code === 'Space') { e.preventDefault(); if (selectedIds.length && onChangeTasks) { const set = new Set(selectedIds); const next = tasks.map(t => set.has(t.id) ? { ...t, done: !t.done } : t); onChangeTasks(next); } }
     }}>
       <TimelineY />
       <div className="min-w-0 flex-1">
