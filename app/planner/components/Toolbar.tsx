@@ -1,5 +1,6 @@
 ﻿'use client';
 
+import type React from 'react';
 import ThemeToggle from './ThemeToggle';
 
 type ViewMode = 'day' | 'week' | 'month';
@@ -11,10 +12,7 @@ type Props = {
   onChangeDays: (n: number) => void;
 };
 
-import type React from 'react';
-import ExportMenu from './ExportMenu';
-
-export default function Toolbar( & { extraRight?: React.ReactNode }) {
+export default function Toolbar({ view, onChangeView, days, onChangeDays, extraRight }: Props & { extraRight?: React.ReactNode }) {
   return (
     <div className="flex flex-wrap items-center justify-between gap-3 border-b px-4 py-3">
       <div className="flex items-center gap-2">
@@ -38,7 +36,10 @@ export default function Toolbar( & { extraRight?: React.ReactNode }) {
           if (!Number.isNaN(n)) onChangeDays(n);
         }}>自定义</button>
       </div>
-      <ThemeToggle />\n      {extraRight}\n    </div>
+      <div className="flex items-center gap-3">
+        <ThemeToggle />
+        {extraRight}
+      </div>
+    </div>
   );
 }
-
