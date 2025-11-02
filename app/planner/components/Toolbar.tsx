@@ -8,7 +8,7 @@ type ViewMode = 'day' | 'week' | 'month';
 type Props = {
   view: ViewMode;
   onChangeView: (v: ViewMode) => void;
-  days: number; // timeline window length in days
+  days: number;
   onChangeDays: (n: number) => void;
   onPrev: () => void;
   onNext: () => void;
@@ -18,12 +18,13 @@ type Props = {
   onChangeTaskColor?: (c: 'blue'|'green'|'amber'|'purple'|'indigo'|'rose'|'gray') => void;
 };
 
-export default function Toolbar({ view, onChangeView, days, onChangeDays, onPrev, onNext, onToday, rangeLabel, extraRight, selectedTaskId, onChangeTaskColor }: Props & { extraRight?: React.ReactNode }) {
+export default function Toolbar({ view, onChangeView, days, onChangeDays, onPrev, onNext, onToday, rangeLabel, extraRight, selectedTaskIds, onChangeTaskColor }: Props & { extraRight?: React.ReactNode }) {
   const isTimeline = view !== 'month';
   const COLORS: Array<'blue'|'green'|'amber'|'purple'|'indigo'|'rose'|'gray'> = ['blue','green','amber','purple','indigo','rose','gray'];
+  const disabled = !selectedTaskIds || selectedTaskIds.length === 0;
   return (
     <div className="flex flex-wrap items-center justify-between gap-3 border-b px-4 py-3">
-      {/* 左侧：导航、范围、颜色调板 */}
+      {/* Left: nav, range, color palette */}
       <div className="flex flex-1 items-center gap-4">
         <div className="flex items-center gap-2">
           <button className="rounded border px-2 py-1 text-sm" onClick={onPrev}>◀</button>
@@ -31,16 +32,21 @@ export default function Toolbar({ view, onChangeView, days, onChangeDays, onPrev
           <button className="rounded border px-2 py-1 text-sm" onClick={onNext}>▶</button>
         </div>
         <div className="text-sm text-zinc-700 dark:text-zinc-300">{rangeLabel}</div>
-        {/* 颜色（应用到当前选中任务） */}
         <div className="ml-2 flex items-center gap-2">
           <span className="text-sm text-zinc-600">颜色</span>
           {COLORS.map(c => (
-            <button key={c} title={`设为${c}`} disabled={!selectedTaskIds || selectedTaskIds.length===0} onClick={() => onChangeTaskColor && selectedTaskIds && selectedTaskIds.length>0 && onChangeTaskColor(c)} className={`h-5 w-5 rounded ${(!selectedTaskIds || selectedTaskIds.length===0) ? 'opacity-30 cursor-not-allowed' : ''} ${c==='blue'?'bg-blue-500':''} ${c==='green'?'bg-green-500':''} ${c==='amber'?'bg-amber-500':''} ${c==='purple'?'bg-purple-500':''} ${c==='indigo'?'bg-indigo-500':''} ${c==='rose'?'bg-rose-500':''} ${c==='gray'?'bg-zinc-500':''}`}></button>
+            <button
+              key={c}
+              title={`设为${c}`}
+              disabled={disabled}
+              onClick={() => !disabled && onChangeTaskColor && onChangeTaskColor(c)}
+              className={`h-5 w-5 rounded ${disabled ? 'opacity-30 cursor-not-allowed' : ''} ${c==='blue'?'bg-blue-500':''} ${c==='green'?'bg-green-500':''} ${c==='amber'?'bg-amber-500':''} ${c==='purple'?'bg-purple-500':''} ${c==='indigo'?'bg-indigo-500':''} ${c==='rose'?'bg-rose-500':''} ${c==='gray'?'bg-zinc-500':''}`}
+            />
           ))}
         </div>
       </div>
 
-      {/* 右侧：视图与窗口、主题、导出 */}
+      {/* Right: view/window/theme/export */}
       <div className="flex items-center gap-3">
         <div className="flex items-center gap-2">
           <span className="text-sm text-zinc-600">视图</span>
@@ -68,5 +74,3 @@ export default function Toolbar({ view, onChangeView, days, onChangeDays, onPrev
     </div>
   );
 }
-
-
