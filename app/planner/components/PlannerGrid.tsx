@@ -13,11 +13,7 @@ export type Task = {
   done?: boolean;
 };
 
-type Props = {
-  days: number;
-  tasks: Task[];
-  onChangeTasks?: (tasks: Task[]) => void;
-};
+type Props = {\n  days: number;\n  tasks: Task[];\n  onChangeTasks?: (tasks: Task[]) => void;\n  anchorDate?: Date; // 作为 dayIndex=0 的日期\n};
 
 const HOUR_PX = 48; // 每小时高度
 const START_HOUR = 6;
@@ -97,8 +93,7 @@ export default function PlannerGrid({ days, tasks, onChangeTasks }: Props) {
 
   const heightPx = (hours.length - 1) * HOUR_PX;
 
-  const dayLabels = useMemo(() => {
-    const base = new Date(); base.setHours(0,0,0,0);
+  const dayLabels = useMemo(() => {\n    const base = new Date(anchorDate ?? new Date()); base.setHours(0,0,0,0);\n    return Array.from({length: days}, (_, i) => {\n      const d = new Date(base); d.setDate(base.getDate() + i);\n      return ${d.getMonth()+1}/;\n    });\n  }, [days, anchorDate]); base.setHours(0,0,0,0);
     return Array.from({length: days}, (_, i) => {
       const d = new Date(base); d.setDate(base.getDate() + i);
       return `${d.getMonth()+1}/${d.getDate()}`;
@@ -327,3 +322,4 @@ export default function PlannerGrid({ days, tasks, onChangeTasks }: Props) {
     </div>
   );
 }
+

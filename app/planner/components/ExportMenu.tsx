@@ -50,7 +50,7 @@ function drawPlannerCanvas(canvas: HTMLCanvasElement, days: number, tasks: Task[
   ctx.strokeStyle = colors.border; ctx.beginPath(); ctx.moveTo(0,headerH+0.5); ctx.lineTo(width,headerH+0.5); ctx.stroke();
 
   // day labels
-  const base = new Date(); base.setHours(0,0,0,0);
+  const base = new Date(anchorDate); base.setHours(0,0,0,0);
   ctx.fillStyle = colors.fg; ctx.font = '14px system-ui, sans-serif'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
   for (let d=0; d<days; d++) {
     const date = new Date(base); date.setDate(base.getDate()+d);
@@ -148,3 +148,4 @@ export default function ExportMenu({ days, tasks }: { days: number; tasks: Task[
     >导出 PNG</button>
   );
 }
+

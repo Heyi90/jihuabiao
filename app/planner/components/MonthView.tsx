@@ -10,18 +10,14 @@ function addDays(d: Date, n: number) { const x = new Date(d); x.setDate(x.getDat
 function sameDate(a: Date, b: Date) { return a.getFullYear()===b.getFullYear() && a.getMonth()===b.getMonth() && a.getDate()===b.getDate(); }
 
 export default function MonthView({ tasks }: { tasks: Task[] }) {
-  const today = startOfDay(new Date());
+  const today = startOfDay(anchorDate);
   const monthStart = startOfDay(new Date(today.getFullYear(), today.getMonth(), 1));
   // 将日历起始对齐到周一（中国地区常用）
   const dow = (monthStart.getDay()+6)%7; // 0..6, 周一=0
   const viewStart = addDays(monthStart, -dow);
   const cells: Date[] = Array.from({ length: 42 }, (_, i) => addDays(viewStart, i)); // 6 行 * 7 列
 
-  // 计算每个任务的绝对日期：以 today 为基准（与周/日视图一致）
-  const tasksWithDate = tasks.map(t => ({
-    task: t,
-    date: addDays(today, t.dayIndex)
-  }));
+    // 计算每个任务的绝对日期：以 anchorDate 为基准\n  const tasksWithDate = tasks.map(t => ({ task: t, date: addDays(today, t.dayIndex) }));
 
   return (
     <div className="flex h-full flex-col">
@@ -57,3 +53,4 @@ export default function MonthView({ tasks }: { tasks: Task[] }) {
     </div>
   );
 }
+
