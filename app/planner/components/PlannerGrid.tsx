@@ -41,16 +41,21 @@ const COLOR_STYLES: Record<string, {bg: string; border: string; text: string; da
 function colorClasses(t: Task) {
   const c = t.color || 'blue';
   const s = COLOR_STYLES[c];
-  return ${s.bg}     ;
+  return `${s.bg} ${s.border} ${s.text} ${s.darkBg} ${s.darkBorder} ${s.darkText}`;
 }
 
 function ringClass(t: Task) {
   const c = t.color || 'blue';
-  return c==='blue'? 'ring-blue-400' : c==='green'? 'ring-green-400' : c==='amber'? 'ring-amber-400' : c==='purple'? 'ring-purple-400' : c==='indigo'? 'ring-indigo-400' : c==='rose'? 'ring-rose-400' : 'ring-zinc-400';
-}\n
-
-function clamp(n: number, min: number, max: number) { return Math.max(min, Math.min(max, n)); }
-function timeToMinutes(t: string) { const [hh, mm] = t.split(':').map(Number); return hh*60+mm; }
+  switch (c) {
+    case 'green': return 'ring-green-400';
+    case 'amber': return 'ring-amber-400';
+    case 'purple': return 'ring-purple-400';
+    case 'indigo': return 'ring-indigo-400';
+    case 'rose': return 'ring-rose-400';
+    case 'gray': return 'ring-zinc-400';
+    default: return 'ring-blue-400';
+  }
+}function timeToMinutes(t: string) { const [hh, mm] = t.split(':').map(Number); return hh*60+mm; }
 function minutesToTime(m: number) { const hh = Math.floor(m/60), mm = m%60; return `${String(hh).padStart(2,'0')}:${String(mm).padStart(2,'0')}`; }
 function snap30(mins: number) { return Math.round(mins/30)*30; }
 function timeToOffsetPx(t: string) {
@@ -298,6 +303,7 @@ export default function PlannerGrid({ days, tasks, onChangeTasks, anchorDate, on
     </div>
   );
 }
+
 
 
 
