@@ -235,7 +235,7 @@ export default function PlannerGrid({ days, tasks, onChangeTasks, anchorDate, on
     <div ref={containerRef} className="flex overflow-auto outline-none" onMouseUp={onMouseUp} tabIndex={0} onKeyDown={(e) => {
       if (e.key === 'Delete') { e.preventDefault(); removeSelected(); }
       if (e.key === 'Escape') { e.preventDefault(); setSel([]); }
-      if (e.key === ' ' || e.key === 'Spacebar' || e.code === 'Space') { e.preventDefault(); if (selectedIds.length) selectedIds.forEach(id => { const t = tasks.find(x=>x.id===id); if (t) { onChangeTasks?.(tasks.map(x=> x.id===id ? { ...x, done: !x.done } : x)); } }); }
+      if (e.key === ' ' || e.key === 'Spacebar' || e.code === 'Space') { e.preventDefault(); if (selectedIds.length && onChangeTasks) { const set = new Set(selectedIds); const next = tasks.map(t => set.has(t.id) ? { ...t, done: !t.done } : t); onChangeTasks(next); } } : x)); } }); }
     }}>
       <TimelineY />
       <div className="min-w-0 flex-1">
@@ -288,9 +288,7 @@ export default function PlannerGrid({ days, tasks, onChangeTasks, anchorDate, on
                           if (!selectedIds.includes(t.id) && !(e as any).shiftKey) setSel([t.id]);
                           setDrag({ type: 'move', ids: idsToUse, anchorId: idsToUse[0], origs, startClientX: (e as any).clientX, startClientY: (e as any).clientY });
                         }
-                      }}
-                    >
-                      {isEdit ? (
+                      }}\n                      onDoubleClick={(e)=>{ (e as any).stopPropagation(); setEditingId(t.id); setEditingTitle(t.title); }}\n                    >\n                      {isEdit ? (
                         <input autoFocus className="w-full rounded border border-blue-400 bg-white/90 px-1 py-0.5 text-blue-900 outline-none dark:bg-zinc-900/90 dark:text-zinc-100" value={editingTitle} onChange={(e) => setEditingTitle((e as any).target.value)} onBlur={commitEdit} onKeyDown={(e) => { if ((e as any).key==='Enter') commitEdit(); if ((e as any).key==='Escape') setEditingId(null); }} />
                       ) : (
                         <>
@@ -317,3 +315,4 @@ export default function PlannerGrid({ days, tasks, onChangeTasks, anchorDate, on
     </div>
   );
 }
+
