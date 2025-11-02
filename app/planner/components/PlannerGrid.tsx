@@ -38,13 +38,16 @@ const COLOR_STYLES: Record<string, {bg: string; border: string; text: string; da
   gray:   { bg: 'bg-zinc-100/60',   border: 'border-zinc-300',   text: 'text-zinc-900',   darkBg: 'dark:bg-zinc-900/30',   darkBorder: 'dark:border-zinc-800',   darkText: 'dark:text-zinc-200' },
 };
 
-function colorClasses(t: Task) {}
+function colorClasses(t: Task) {
+  const c = t.color || 'blue';
+  const s = COLOR_STYLES[c];
+  return ${s.bg}     ;
+}
 
 function ringClass(t: Task) {
   const c = t.color || 'blue';
   return c==='blue'? 'ring-blue-400' : c==='green'? 'ring-green-400' : c==='amber'? 'ring-amber-400' : c==='purple'? 'ring-purple-400' : c==='indigo'? 'ring-indigo-400' : c==='rose'? 'ring-rose-400' : 'ring-zinc-400';
-} ${s.border} ${s.text} ${s.darkBg} ${s.darkBorder} ${s.darkText}`;
-}
+}\n
 
 function clamp(n: number, min: number, max: number) { return Math.max(min, Math.min(max, n)); }
 function timeToMinutes(t: string) { const [hh, mm] = t.split(':').map(Number); return hh*60+mm; }
@@ -295,5 +298,6 @@ export default function PlannerGrid({ days, tasks, onChangeTasks, anchorDate, on
     </div>
   );
 }
+
 
 
