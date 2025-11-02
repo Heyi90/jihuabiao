@@ -18,23 +18,29 @@ function diffDays(a: Date, b: Date) { return Math.round((startOfDay(a).getTime()
 export default function PlannerPage() {
   const [view, setView] = useState<ViewMode>('week');
   const [days, setDays] = useState<number>(7);
-  // baseAnchor：任务 dayIndex 的参考原点（通常为首次进入时的“今天”），不随导航改变
+  // base anchor: dayIndex=0 reference (initial "today"); not changed when navigating
   const [baseAnchor] = useState<Date>(startOfDay(new Date()));
-  // anchorDate：当前视图左侧（或当月1日）锚点
+  // anchorDate: current view anchor (left-most day or month 1st day)
   const [anchorDate, setAnchorDate] = useState<Date>(startOfDay(new Date()));
-  const [tasks, setTasks] = useState<Task[]>([\n    { id: 't1', title: '晨读', dayIndex: 0, start: '07:00', end: '08:00' },\n    { id: 't2', title: '工作-需求评审', dayIndex: 1, start: '10:30', end: '12:00' },\n    { id: 't3', title: '午休', dayIndex: 2, start: '12:30', end: '13:30', done: true },\n    { id: 't4', title: '学习-前端', dayIndex: 2, start: '20:00', end: '22:00' },\n    { id: 't5', title: '运动', dayIndex: 4, start: '18:30', end: '19:30' },\n  ]);\n  const [selectedTaskId, setSelectedTaskId] = useState<string | null>(null);
+  const [tasks, setTasks] = useState<Task[]>([
+    { id: 't1', title: '晨读', dayIndex: 0, start: '07:00', end: '08:00' },
+    { id: 't2', title: '工作-需求评审', dayIndex: 1, start: '10:30', end: '12:00' },
+    { id: 't3', title: '午休', dayIndex: 2, start: '12:30', end: '13:30', done: true },
+    { id: 't4', title: '学习-前端', dayIndex: 2, start: '20:00', end: '22:00' },
+    { id: 't5', title: '运动', dayIndex: 4, start: '18:30', end: '19:30' },
+  ]);
+  const [selectedTaskId, setSelectedTaskId] = useState<string | null>(null);
 
-  // 当切换视图时，调整默认展示天数
+  // adjust default days when switching views
   useMemo(() => {
     if (view === 'day' && days !== 3 && days !== 1) setDays(3);
     if (view === 'week' && days !== 7) setDays(7);
   }, [view]);
 
-  // 根据当前 anchorDate 与 baseAnchor 的天数差，将任务映射为“相对当前视图”的列索引
-  const shift = diffDays(anchorDate, baseAnchor); // 当前视图相对原点的位移（天）
+  // derive tasks relative to current anchor
+  const shift = diffDays(anchorDate, baseAnchor);
   const derivedTasks = useMemo(() => tasks.map(t => ({ ...t, dayIndex: t.dayIndex - shift })), [tasks, shift]);
   const applyDerivedTasks = (next: Task[]) => {
-    // 将相对列索引还原为以 baseAnchor 为原点的 dayIndex
     const restored = next.map(t => ({ ...t, dayIndex: t.dayIndex + shift }));
     setTasks(restored);
   };
@@ -70,16 +76,17 @@ export default function PlannerPage() {
         onNext={onNext}
         onToday={onToday}
         rangeLabel={rangeLabel}
+        selectedTaskId={selectedTaskId}
+        onChangeTaskColor={(c) => setTasks(prev => prev.map(t => t.id===selectedTaskId ? { ...t, color: c } : t))}
         extraRight={<ExportMenu days={days} tasks={derivedTasks} anchorDate={anchorDate} />}
       />
       <div className="flex-1">
         {view === 'month' ? (
           <MonthView tasks={derivedTasks} anchorDate={anchorDate} />
         ) : (
-          <PlannerGrid days={days} tasks={derivedTasks} onChangeTasks={applyDerivedTasks} anchorDate={anchorDate} />
+          <PlannerGrid days={days} tasks={derivedTasks} onChangeTasks={applyDerivedTasks} anchorDate={anchorDate} onSelectTask={setSelectedTaskId} />
         )}
       </div>
     </div>
   );
 }
-
