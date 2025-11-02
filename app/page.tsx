@@ -1,1 +1,5 @@
-﻿C:\Users\chouc
+﻿import { redirect } from 'next/navigation';
+
+export default function Home() {
+  redirect('/planner');
+}
