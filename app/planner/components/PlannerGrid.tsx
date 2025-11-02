@@ -11,6 +11,7 @@ export type Task = {
   start: string; // 'HH:mm'
   end: string;   // 'HH:mm'
   done?: boolean;
+  color?: 'blue' | 'green' | 'amber' | 'purple' | 'indigo' | 'rose' | 'gray';
 };
 
 type Props = {
@@ -25,6 +26,22 @@ const START_HOUR = 6;
 const END_HOUR = 23; // end bound (exclusive for height)
 const RANGE_MINUTES = (END_HOUR - START_HOUR) * 60;
 const SNAP_MIN = 15; // snap-to-neighbor threshold in minutes
+
+const COLOR_STYLES: Record<string, {bg: string; border: string; text: string; darkBg: string; darkBorder: string; darkText: string;}> = {
+  blue:   { bg: 'bg-blue-100/60',   border: 'border-blue-300',   text: 'text-blue-900',   darkBg: 'dark:bg-blue-900/30',   darkBorder: 'dark:border-blue-800',   darkText: 'dark:text-blue-200' },
+  green:  { bg: 'bg-green-100/60',  border: 'border-green-300',  text: 'text-green-900',  darkBg: 'dark:bg-green-900/30',  darkBorder: 'dark:border-green-800',  darkText: 'dark:text-green-200' },
+  amber:  { bg: 'bg-amber-100/60',  border: 'border-amber-300',  text: 'text-amber-900',  darkBg: 'dark:bg-amber-900/30',  darkBorder: 'dark:border-amber-800',  darkText: 'dark:text-amber-200' },
+  purple: { bg: 'bg-purple-100/60', border: 'border-purple-300', text: 'text-purple-900', darkBg: 'dark:bg-purple-900/30', darkBorder: 'dark:border-purple-800', darkText: 'dark:text-purple-200' },
+  indigo: { bg: 'bg-indigo-100/60', border: 'border-indigo-300', text: 'text-indigo-900', darkBg: 'dark:bg-indigo-900/30', darkBorder: 'dark:border-indigo-800', darkText: 'dark:text-indigo-200' },
+  rose:   { bg: 'bg-rose-100/60',   border: 'border-rose-300',   text: 'text-rose-900',   darkBg: 'dark:bg-rose-900/30',   darkBorder: 'dark:border-rose-800',   darkText: 'dark:text-rose-200' },
+  gray:   { bg: 'bg-zinc-100/60',   border: 'border-zinc-300',   text: 'text-zinc-900',   darkBg: 'dark:bg-zinc-900/30',   darkBorder: 'dark:border-zinc-800',   darkText: 'dark:text-zinc-200' },
+};
+
+function colorClasses(t: Task) {
+  const c = t.color || 'blue';
+  const s = COLOR_STYLES[c];
+  return `${s.bg} ${s.border} ${s.text} ${s.darkBg} ${s.darkBorder} ${s.darkText}`;
+}
 
 function clamp(n: number, min: number, max: number) { return Math.max(min, Math.min(max, n)); }
 function timeToMinutes(t: string) { const [hh, mm] = t.split(':').map(Number); return hh*60+mm; }
@@ -80,6 +97,7 @@ export default function PlannerGrid({ days, tasks, onChangeTasks, anchorDate }: 
   const [editingId, setEditingId] = useState<string | null>(null);
   const [editingTitle, setEditingTitle] = useState<string>('');
   const [guideY, setGuideY] = useState<number | null>(null); // snap guide line
+  const [colorFor, setColorFor] = useState<string | null>(null); // open color palette for task
 
   const heightPx = (hours.length - 1) * HOUR_PX;
 
@@ -108,7 +126,7 @@ export default function PlannerGrid({ days, tasks, onChangeTasks, anchorDate }: 
     let startMin = START_HOUR*60 + minutesFromStart;
     let endMin = startMin + 60; // default 60min
     if (endMin > END_HOUR*60) { endMin = END_HOUR*60; startMin = Math.max(START_HOUR*60, endMin - 60); }
-    const newTask: Task = { id: 't' + Math.random().toString(36).slice(2,8), title: '新任务', dayIndex: clamp(col, 0, days-1), start: minutesToTime(startMin), end: minutesToTime(endMin) };
+    const newTask: Task = { id: 't' + Math.random().toString(36).slice(2,8), title: '新任务', dayIndex: clamp(col, 0, days-1), start: minutesToTime(startMin), end: minutesToTime(endMin), color: 'blue' };
     onChangeTasks([...tasks, newTask]);
     setSelectedId(newTask.id);
   }, [days, heightPx, onChangeTasks, tasks]);
@@ -159,7 +177,7 @@ export default function PlannerGrid({ days, tasks, onChangeTasks, anchorDate }: 
     }
   }, [days, drag, heightPx, updateTask, snapToNeighbors]);
 
-  const onMouseUp = useCallback(() => { setDrag(null); setGuideY(null); }, []);
+  const onMouseUp = useCallback(() => { setDrag(null); setGuideY(null); setColorFor(null); }, []);
 
   const commitEdit = useCallback(() => {
     if (!editingId) return;
@@ -174,6 +192,8 @@ export default function PlannerGrid({ days, tasks, onChangeTasks, anchorDate }: 
     setSelectedId(null);
   }, [onChangeTasks, selectedId, tasks]);
 
+  const COLORS: Task['color'][] = ['blue','green','amber','purple','indigo','rose','gray'];
+
   return (
     <div
       ref={containerRef}
@@ -182,7 +202,7 @@ export default function PlannerGrid({ days, tasks, onChangeTasks, anchorDate }: 
       tabIndex={0}
       onKeyDown={(e) => {
         if (e.key === 'Delete') { e.preventDefault(); removeSelected(); }
-        if (e.key === 'Escape') { e.preventDefault(); setSelectedId(null); }
+        if (e.key === 'Escape') { e.preventDefault(); setSelectedId(null); setColorFor(null); }
         if (e.key === ' ' || e.key === 'Spacebar' || e.code === 'Space') { e.preventDefault(); if (selectedId) toggleDone(selectedId); }
       }}
     >
@@ -218,9 +238,10 @@ export default function PlannerGrid({ days, tasks, onChangeTasks, anchorDate }: 
                   const isSel = selectedId===t.id;
                   const isEdit = editingId===t.id;
                   const isConflict = conflictIds.has(t.id);
+                  const colorCls = colorClasses(t);
                   return (
                     <div key={t.id}
-                         className={`group absolute left-1 right-1 rounded-md border text-xs px-2 py-1 shadow-sm ${t.done? 'bg-green-200/60 border-green-300 text-green-900 dark:bg-green-900/30 dark:border-green-800 dark:text-green-200 line-through' : isConflict? 'bg-red-100/60 border-red-300 text-red-900 dark:bg-red-900/30 dark:border-red-800 dark:text-red-200' : 'bg-blue-100/60 border-blue-300 text-blue-900 dark:bg-blue-900/30 dark:border-blue-800 dark:text-blue-200'} ${isSel?'ring-2 ring-blue-400':''}`}
+                         className={`group absolute left-1 right-1 rounded-md border text-xs px-2 py-1 shadow-sm ${t.done? 'bg-green-200/60 border-green-300 text-green-900 dark:bg-green-900/30 dark:border-green-800 dark:text-green-200 line-through' : isConflict? 'bg-red-100/60 border-red-300 text-red-900 dark:bg-red-900/30 dark:border-red-800 dark:text-red-200' : colorCls} ${isSel?'ring-2 ring-blue-400':''}`}
                          style={{ top, height }}
                          title={`${t.title} (${t.start}-${t.end})`}
                          onMouseDown={(e) => {
@@ -253,9 +274,22 @@ export default function PlannerGrid({ days, tasks, onChangeTasks, anchorDate }: 
                         <>
                           <div className="truncate flex items-center justify-between">
                             <span>{t.title}</span>
-                            <div className="flex items-center gap-2">
+                            <div className="relative flex items-center gap-2">
                               {isConflict && <span className="ml-1 rounded bg-red-500/80 px-1 text-[10px] leading-4 text-white">冲突</span>}
+                              {/* color button */}
+                              <button aria-label="color" className="h-4 w-4 rounded border" style={{ backgroundColor: 'transparent' }} onClick={(e) => { (e as any).stopPropagation(); setColorFor(colorFor===t.id? null : t.id); }}>
+                                <span className={`block h-3 w-3 rounded-sm ${t.color? '' : 'bg-blue-400'}`}></span>
+                              </button>
+                              {/* done toggle */}
                               <button aria-label="toggle done" className={`h-4 w-4 rounded border text-[10px] leading-3 ${t.done?'bg-green-500 text-white border-green-600':'bg-white/60 dark:bg-zinc-900/60'}`} onClick={(e) => { (e as any).stopPropagation(); toggleDone(t.id); }}>{t.done ? 'x' : ''}</button>
+                              {/* color palette */}
+                              {colorFor===t.id && (
+                                <div className="absolute right-0 top-5 z-20 rounded border bg-white p-1 shadow dark:bg-zinc-900" onMouseDown={(e)=> (e as any).stopPropagation()}>
+                                  {COLORS.map(c => (
+                                    <button key={c} className={`m-0.5 h-4 w-4 rounded ${c==='blue'?'bg-blue-500':''} ${c==='green'?'bg-green-500':''} ${c==='amber'?'bg-amber-500':''} ${c==='purple'?'bg-purple-500':''} ${c==='indigo'?'bg-indigo-500':''} ${c==='rose'?'bg-rose-500':''} ${c==='gray'?'bg-zinc-500':''}`} onClick={() => { updateTask(t.id, x => ({ ...x, color: c })); setColorFor(null); }} />
+                                  ))}
+                                </div>
+                              )}
                             </div>
                           </div>
                           <div className="opacity-70">{t.start} - {t.end}</div>
