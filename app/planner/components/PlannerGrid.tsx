@@ -288,7 +288,10 @@ export default function PlannerGrid({ days, tasks, onChangeTasks, anchorDate, on
                           if (!selectedIds.includes(t.id) && !(e as any).shiftKey) setSel([t.id]);
                           setDrag({ type: 'move', ids: idsToUse, anchorId: idsToUse[0], origs, startClientX: (e as any).clientX, startClientY: (e as any).clientY });
                         }
-                      }}\n                      onDoubleClick={(e)=>{ (e as any).stopPropagation(); setEditingId(t.id); setEditingTitle(t.title); }}\n                    >\n                      {isEdit ? (
+                      }}
+                      onDoubleClick={(e)=>{ (e as any).stopPropagation(); setEditingId(t.id); setEditingTitle(t.title); }}
+                    >
+                      {isEdit ? (
                         <input autoFocus className="w-full rounded border border-blue-400 bg-white/90 px-1 py-0.5 text-blue-900 outline-none dark:bg-zinc-900/90 dark:text-zinc-100" value={editingTitle} onChange={(e) => setEditingTitle((e as any).target.value)} onBlur={commitEdit} onKeyDown={(e) => { if ((e as any).key==='Enter') commitEdit(); if ((e as any).key==='Escape') setEditingId(null); }} />
                       ) : (
                         <>
@@ -315,5 +318,6 @@ export default function PlannerGrid({ days, tasks, onChangeTasks, anchorDate, on
     </div>
   );
 }
+
 
 
