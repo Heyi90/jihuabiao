@@ -177,7 +177,7 @@ export default function PlannerGrid({ days, tasks, onChangeTasks, anchorDate }: 
     }
   }, [days, drag, heightPx, updateTask, snapToNeighbors]);
 
-  const onMouseUp = useCallback(() => { setDrag(null); setGuideY(null); setColorFor(null); }, []);
+  const onMouseUp = useCallback(() => { setDrag(null); setGuideY(null); }, []);
 
   const commitEdit = useCallback(() => {
     if (!editingId) return;
@@ -277,7 +277,7 @@ export default function PlannerGrid({ days, tasks, onChangeTasks, anchorDate }: 
                             <div className="relative flex items-center gap-2">
                               {isConflict && <span className="ml-1 rounded bg-red-500/80 px-1 text-[10px] leading-4 text-white">冲突</span>}
                               {/* color button */}
-                              <button aria-label="color" className="h-4 w-4 rounded border" style={{ backgroundColor: 'transparent' }} onClick={(e) => { (e as any).stopPropagation(); setColorFor(colorFor===t.id? null : t.id); }}>
+                              <button aria-label="color" className="h-4 w-4 rounded border" style={{ backgroundColor: 'transparent' }} onMouseDown={(e) => { (e as any).stopPropagation(); setColorFor(colorFor===t.id? null : t.id); }}>
                                 <span className={`block h-3 w-3 rounded-sm ${t.color? '' : 'bg-blue-400'}`}></span>
                               </button>
                               {/* done toggle */}
@@ -308,3 +308,4 @@ export default function PlannerGrid({ days, tasks, onChangeTasks, anchorDate }: 
     </div>
   );
 }
+
