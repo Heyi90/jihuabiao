@@ -4,6 +4,7 @@ import { useMemo, useState } from 'react';
 import Toolbar from './components/Toolbar';
 import PlannerGrid, { Task } from './components/PlannerGrid';
 import ExportMenu from './components/ExportMenu';
+import MonthView from './components/MonthView';
 
 type ViewMode = 'day' | 'week' | 'month';
 
@@ -34,9 +35,7 @@ export default function PlannerPage() {
       />
       <div className="flex-1">
         {view === 'month' ? (
-          <div className="flex h-full items-center justify-center text-sm text-zinc-500">
-            月视图即将推出（当前以任务分布为主，不含细粒度时间轴）。
-          </div>
+          <MonthView tasks={tasks} />
         ) : (
           <PlannerGrid days={days} tasks={tasks} onChangeTasks={setTasks} />
         )}
