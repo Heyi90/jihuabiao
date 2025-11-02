@@ -19,6 +19,7 @@ type Props = {
   tasks: Task[];
   onChangeTasks?: (tasks: Task[]) => void;
   anchorDate?: Date; // the date corresponding to dayIndex=0
+  onSelectTask?: (id: string | null) => void; // 通知外部当前选中任务
 };
 
 const HOUR_PX = 48; // pixels per hour
@@ -88,7 +89,7 @@ function computeConflicts(tasks: Task[]) {
   return conflicts;
 }
 
-export default function PlannerGrid({ days, tasks, onChangeTasks, anchorDate }: Props) {
+export default function PlannerGrid({ days, tasks, onChangeTasks, anchorDate, onSelectTask }: Props) {
   const hours = hoursRange(START_HOUR, END_HOUR);
   const gridRef = useRef<HTMLDivElement>(null);
   const containerRef = useRef<HTMLDivElement>(null);
@@ -97,7 +98,6 @@ export default function PlannerGrid({ days, tasks, onChangeTasks, anchorDate }: 
   const [editingId, setEditingId] = useState<string | null>(null);
   const [editingTitle, setEditingTitle] = useState<string>('');
   const [guideY, setGuideY] = useState<number | null>(null); // snap guide line
-  const [colorFor, setColorFor] = useState<string | null>(null); // open color palette for task
 
   const heightPx = (hours.length - 1) * HOUR_PX;
 
@@ -128,8 +128,8 @@ export default function PlannerGrid({ days, tasks, onChangeTasks, anchorDate }: 
     if (endMin > END_HOUR*60) { endMin = END_HOUR*60; startMin = Math.max(START_HOUR*60, endMin - 60); }
     const newTask: Task = { id: 't' + Math.random().toString(36).slice(2,8), title: '新任务', dayIndex: clamp(col, 0, days-1), start: minutesToTime(startMin), end: minutesToTime(endMin), color: 'blue' };
     onChangeTasks([...tasks, newTask]);
-    setSelectedId(newTask.id);
-  }, [days, heightPx, onChangeTasks, tasks]);
+    setSelectedId(newTask.id); onSelectTask?.(newTask.id);
+  }, [days, heightPx, onChangeTasks, tasks, onSelectTask]);
 
   const snapToNeighbors = useCallback((dayIndex: number, minsAbs: number, excludeId?: string) => {
     const boundaries = dayBoundaries(tasks, dayIndex, excludeId);
@@ -189,10 +189,8 @@ export default function PlannerGrid({ days, tasks, onChangeTasks, anchorDate }: 
   const removeSelected = useCallback(() => {
     if (!selectedId || !onChangeTasks) return;
     onChangeTasks(tasks.filter(t => t.id !== selectedId));
-    setSelectedId(null);
-  }, [onChangeTasks, selectedId, tasks]);
-
-  const COLORS: Task['color'][] = ['blue','green','amber','purple','indigo','rose','gray'];
+    setSelectedId(null); onSelectTask?.(null);
+  }, [onChangeTasks, selectedId, tasks, onSelectTask]);
 
   return (
     <div
@@ -202,7 +200,7 @@ export default function PlannerGrid({ days, tasks, onChangeTasks, anchorDate }: 
       tabIndex={0}
       onKeyDown={(e) => {
         if (e.key === 'Delete') { e.preventDefault(); removeSelected(); }
-        if (e.key === 'Escape') { e.preventDefault(); setSelectedId(null); setColorFor(null); }
+        if (e.key === 'Escape') { e.preventDefault(); setSelectedId(null); onSelectTask?.(null); }
         if (e.key === ' ' || e.key === 'Spacebar' || e.code === 'Space') { e.preventDefault(); if (selectedId) toggleDone(selectedId); }
       }}
     >
@@ -252,10 +250,10 @@ export default function PlannerGrid({ days, tasks, onChangeTasks, anchorDate }: 
                            if (clone && onChangeTasks) {
                              const copy: Task = { ...t, id: 't'+Math.random().toString(36).slice(2,8) };
                              onChangeTasks([...tasks, copy]);
-                             setSelectedId(copy.id);
+                             setSelectedId(copy.id); onSelectTask?.(copy.id);
                              setDrag({ id: copy.id, type: 'move', startClientX: (e as any).clientX, startClientY: (e as any).clientY, orig: copy, duration: minutesBetween(copy.start, copy.end) });
                            } else {
-                             setSelectedId(t.id);
+                             setSelectedId(t.id); onSelectTask?.(t.id);
                              setDrag({ id: t.id, type: 'move', startClientX: (e as any).clientX, startClientY: (e as any).clientY, orig: t, duration: minutesBetween(t.start, t.end) });
                            }
                          }}
@@ -274,27 +272,14 @@ export default function PlannerGrid({ days, tasks, onChangeTasks, anchorDate }: 
                         <>
                           <div className="truncate flex items-center justify-between">
                             <span>{t.title}</span>
-                            <div className="relative flex items-center gap-2">
+                            <div className="flex items-center gap-2">
                               {isConflict && <span className="ml-1 rounded bg-red-500/80 px-1 text-[10px] leading-4 text-white">冲突</span>}
-                              {/* color button */}
-                              <button aria-label="color" className="h-4 w-4 rounded border" style={{ backgroundColor: 'transparent' }} onMouseDown={(e) => { (e as any).stopPropagation(); setColorFor(colorFor===t.id? null : t.id); }}>
-                                <span className={`block h-3 w-3 rounded-sm ${t.color? '' : 'bg-blue-400'}`}></span>
-                              </button>
-                              {/* done toggle */}
                               <button aria-label="toggle done" className={`h-4 w-4 rounded border text-[10px] leading-3 ${t.done?'bg-green-500 text-white border-green-600':'bg-white/60 dark:bg-zinc-900/60'}`} onClick={(e) => { (e as any).stopPropagation(); toggleDone(t.id); }}>{t.done ? 'x' : ''}</button>
-                              {/* color palette */}
-                              {colorFor===t.id && (
-                                <div className="absolute right-0 top-5 z-20 rounded border bg-white p-1 shadow dark:bg-zinc-900" onMouseDown={(e)=> (e as any).stopPropagation()}>
-                                  {COLORS.map(c => (
-                                    <button key={c} className={`m-0.5 h-4 w-4 rounded ${c==='blue'?'bg-blue-500':''} ${c==='green'?'bg-green-500':''} ${c==='amber'?'bg-amber-500':''} ${c==='purple'?'bg-purple-500':''} ${c==='indigo'?'bg-indigo-500':''} ${c==='rose'?'bg-rose-500':''} ${c==='gray'?'bg-zinc-500':''}`} onClick={() => { updateTask(t.id, x => ({ ...x, color: c })); setColorFor(null); }} />
-                                  ))}
-                                </div>
-                              )}
                             </div>
                           </div>
                           <div className="opacity-70">{t.start} - {t.end}</div>
-                          <div data-handle onMouseDown={(e) => { (e as any).stopPropagation(); setSelectedId(t.id); setDrag({ id: t.id, type: 'resize-top', startClientX: (e as any).clientX, startClientY: (e as any).clientY, orig: t, duration: minutesBetween(t.start, t.end) }); }} className="absolute -top-1 left-1 right-1 h-2 cursor-n-resize rounded bg-blue-400/50 opacity-0 transition-opacity group-hover:opacity-100 dark:bg-blue-600/50" />
-                          <div data-handle onMouseDown={(e) => { (e as any).stopPropagation(); setSelectedId(t.id); setDrag({ id: t.id, type: 'resize-bottom', startClientX: (e as any).clientX, startClientY: (e as any).clientY, orig: t, duration: minutesBetween(t.start, t.end) }); }} className="absolute -bottom-1 left-1 right-1 h-2 cursor-s-resize rounded bg-blue-400/50 opacity-0 transition-opacity group-hover:opacity-100 dark:bg-blue-600/50" />
+                          <div data-handle onMouseDown={(e) => { (e as any).stopPropagation(); setSelectedId(t.id); onSelectTask?.(t.id); setDrag({ id: t.id, type: 'resize-top', startClientX: (e as any).clientX, startClientY: (e as any).clientY, orig: t, duration: minutesBetween(t.start, t.end) }); }} className="absolute -top-1 left-1 right-1 h-2 cursor-n-resize rounded bg-blue-400/50 opacity-0 transition-opacity group-hover:opacity-100 dark:bg-blue-600/50" />
+                          <div data-handle onMouseDown={(e) => { (e as any).stopPropagation(); setSelectedId(t.id); onSelectTask?.(t.id); setDrag({ id: t.id, type: 'resize-bottom', startClientX: (e as any).clientX, startClientY: (e as any).clientY, orig: t, duration: minutesBetween(t.start, t.end) }); }} className="absolute -bottom-1 left-1 right-1 h-2 cursor-s-resize rounded bg-blue-400/50 opacity-0 transition-opacity group-hover:opacity-100 dark:bg-blue-600/50" />
                         </>
                       )}
                     </div>
@@ -308,4 +293,3 @@ export default function PlannerGrid({ days, tasks, onChangeTasks, anchorDate }: 
     </div>
   );
 }
-
