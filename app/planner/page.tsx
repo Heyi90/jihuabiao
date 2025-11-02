@@ -3,6 +3,7 @@
 import { useMemo, useState } from 'react';
 import Toolbar from './components/Toolbar';
 import PlannerGrid, { Task } from './components/PlannerGrid';
+import ExportMenu from './components/ExportMenu';
 
 type ViewMode = 'day' | 'week' | 'month';
 
@@ -17,15 +18,9 @@ export default function PlannerPage() {
     { id: 't5', title: '运动', dayIndex: 4, start: '18:30', end: '19:30' },
   ]);
 
-  // 在不同视图下可调整默认展示天数（此处保留简单逻辑）
   useMemo(() => {
-    if (view === 'day' && days !== 3 && days !== 1) {
-      // day 视图示例：默认显示 3 天窗口
-      setDays(3);
-    }
-    if (view === 'week' && days !== 7) {
-      setDays(7);
-    }
+    if (view === 'day' && days !== 3 && days !== 1) setDays(3);
+    if (view === 'week' && days !== 7) setDays(7);
   }, [view]);
 
   return (
@@ -35,6 +30,7 @@ export default function PlannerPage() {
         onChangeView={(v) => setView(v)}
         days={days}
         onChangeDays={(n) => setDays(n)}
+        extraRight={<ExportMenu days={days} tasks={tasks} />}
       />
       <div className="flex-1">
         {view === 'month' ? (
