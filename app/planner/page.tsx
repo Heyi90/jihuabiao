@@ -22,13 +22,7 @@ export default function PlannerPage() {
   const [baseAnchor] = useState<Date>(startOfDay(new Date()));
   // anchorDate：当前视图左侧（或当月1日）锚点
   const [anchorDate, setAnchorDate] = useState<Date>(startOfDay(new Date()));
-  const [tasks, setTasks] = useState<Task[]>([
-    { id: 't1', title: '晨读', dayIndex: 0, start: '07:00', end: '08:00' },
-    { id: 't2', title: '工作-需求评审', dayIndex: 1, start: '10:30', end: '12:00' },
-    { id: 't3', title: '午休', dayIndex: 2, start: '12:30', end: '13:30', done: true },
-    { id: 't4', title: '学习-前端', dayIndex: 2, start: '20:00', end: '22:00' },
-    { id: 't5', title: '运动', dayIndex: 4, start: '18:30', end: '19:30' },
-  ]);
+  const [tasks, setTasks] = useState<Task[]>([\n    { id: 't1', title: '晨读', dayIndex: 0, start: '07:00', end: '08:00' },\n    { id: 't2', title: '工作-需求评审', dayIndex: 1, start: '10:30', end: '12:00' },\n    { id: 't3', title: '午休', dayIndex: 2, start: '12:30', end: '13:30', done: true },\n    { id: 't4', title: '学习-前端', dayIndex: 2, start: '20:00', end: '22:00' },\n    { id: 't5', title: '运动', dayIndex: 4, start: '18:30', end: '19:30' },\n  ]);\n  const [selectedTaskId, setSelectedTaskId] = useState<string | null>(null);
 
   // 当切换视图时，调整默认展示天数
   useMemo(() => {
@@ -88,3 +82,4 @@ export default function PlannerPage() {
     </div>
   );
 }
+
