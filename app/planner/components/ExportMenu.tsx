@@ -1,12 +1,6 @@
 ﻿'use client';
 
-import { useMemo } from 'react';
 import type { Task } from './PlannerGrid';
-
-const START_HOUR = 6;
-const END_HOUR = 23;
-
-function pad(n: number) { return String(n).padStart(2,'0'); }
 
 function detectTheme() {
   const attr = document.documentElement.getAttribute('data-theme');
@@ -14,8 +8,14 @@ function detectTheme() {
   return window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light';
 }
 
-function drawPlannerCanvas(canvas: HTMLCanvasElement, days: number, tasks: Task[], opts?: { scale?: number }) {
-  const scale = opts?.scale ?? 2; // export scale for HiDPI
+function pad(n: number) { return String(n).padStart(2,'0'); }
+
+// Draw planner grid for day/week view into a canvas
+function drawPlannerCanvas(canvas: HTMLCanvasElement, days: number, tasks: Task[], anchorDate: Date, opts?: { scale?: number }) {
+  const START_HOUR = 6;
+  const END_HOUR = 23;
+
+  const scale = opts?.scale ?? 2; // HD export scale
   const hourRows = END_HOUR - START_HOUR; // 17
   const rowH = 48;
   const headerH = 36;
@@ -28,7 +28,7 @@ function drawPlannerCanvas(canvas: HTMLCanvasElement, days: number, tasks: Task[
   canvas.height = Math.floor(height * scale);
   const ctx = canvas.getContext('2d');
   if (!ctx) return;
-  ctx.scale(scale, scale);
+  (ctx as any).scale?.(scale, scale);
 
   const theme = detectTheme();
   const colors = theme === 'dark' ? {
@@ -59,28 +59,21 @@ function drawPlannerCanvas(canvas: HTMLCanvasElement, days: number, tasks: Task[
     ctx.fillText(label, x, y);
   }
 
-  // Y axis labels
+  // Y axis labels and grid
   ctx.textAlign = 'right'; ctx.font = '12px system-ui, sans-serif';
   for (let h=0; h<=hourRows; h++) {
     const hour = START_HOUR + h;
     const y = headerH + h*rowH;
-    if (h>0) { // grid lines
-      ctx.strokeStyle = colors.grid; ctx.beginPath(); ctx.moveTo(0.5, y+0.5); ctx.lineTo(width, y+0.5); ctx.stroke();
-    }
+    if (h>0) { ctx.strokeStyle = colors.grid; ctx.beginPath(); ctx.moveTo(0.5, y+0.5); ctx.lineTo(width, y+0.5); ctx.stroke(); }
     if (h<hourRows) {
-      // minor half-hour
       const yMinor = y + rowH/2;
       ctx.strokeStyle = colors.gridMinor; ctx.beginPath(); ctx.moveTo(yAxisW+0.5, yMinor+0.5); ctx.lineTo(width, yMinor+0.5); ctx.stroke();
     }
-    ctx.fillStyle = '#6b7280';
-    ctx.fillText(`${pad(hour)}:00`, yAxisW - 6, y + 2);
+    ctx.fillStyle = '#6b7280'; ctx.fillText(`${pad(hour)}:00`, yAxisW - 6, y + 2);
   }
 
   // vertical columns
-  for (let d=0; d<days; d++) {
-    const x = yAxisW + d*colW;
-    ctx.strokeStyle = colors.border; ctx.beginPath(); ctx.moveTo(x+0.5, 0); ctx.lineTo(x+0.5, height); ctx.stroke();
-  }
+  for (let d=0; d<days; d++) { const x = yAxisW + d*colW; ctx.strokeStyle = colors.border; ctx.beginPath(); ctx.moveTo(x+0.5, 0); ctx.lineTo(x+0.5, height); ctx.stroke(); }
 
   // tasks
   const rangeMinutes = (END_HOUR-START_HOUR)*60;
@@ -90,62 +83,47 @@ function drawPlannerCanvas(canvas: HTMLCanvasElement, days: number, tasks: Task[
     return headerH + (mins/rangeMinutes) * (hourRows*rowH);
   }
 
+  // conflict detection per day
   const conflicts = new Set<string>();
-  // simple conflict detection per day
   for (let d=0; d<days; d++) {
     const arr = tasks.filter(t=>t.dayIndex===d).sort((a,b)=> (a.start<b.start? -1:1));
     let prev: Task | null = null;
     for (const cur of arr) {
-      if (prev) {
-        const pe = prev.end; const cs = cur.start;
-        if (cs < pe) { conflicts.add(prev.id); conflicts.add(cur.id); }
-      }
+      if (prev) { if (cur.start < (prev as Task).end) { conflicts.add((prev as Task).id); conflicts.add(cur.id); } }
       prev = cur;
     }
   }
 
   for (const t of tasks) {
-    const x = yAxisW + t.dayIndex*colW + 8; // padding
-    const y1 = yFor(t.start);
-    const y2 = yFor(t.end);
-    const h = Math.max(20, y2 - y1);
-    const w = colW - 16;
-
+    const x = yAxisW + t.dayIndex*colW + 8;
+    const y1 = yFor(t.start), y2 = yFor(t.end);
+    const h = Math.max(20, y2 - y1), w = colW - 16;
     const isConflict = conflicts.has(t.id);
     if (t.done) { ctx.fillStyle = colors.green; ctx.strokeStyle = colors.greenBorder; }
     else if (isConflict) { ctx.fillStyle = colors.red; ctx.strokeStyle = colors.redBorder; }
     else { ctx.fillStyle = colors.blueFill; ctx.strokeStyle = colors.blue; }
+    (ctx as any).beginPath();
+    if ((ctx as any).roundRect) { (ctx as any).roundRect(x, y1, w, h, 6); } else { ctx.rect(x, y1, w, h); }
+    ctx.fill(); ctx.stroke();
 
-    ctx.lineWidth = 1; ctx.beginPath(); ctx.roundRect(x, y1, w, h, 6); ctx.fill(); ctx.stroke();
     ctx.save();
     ctx.clip();
     ctx.fillStyle = colors.fg; ctx.font = '12px system-ui, sans-serif'; ctx.textAlign = 'left'; ctx.textBaseline = 'top';
     const title = t.title + (t.done ? ' (已完成)' : '');
     ctx.fillText(title, x+8, y1+6, w-16);
-    ctx.fillStyle = 'rgba(107,114,128,0.9)';
-    ctx.fillText(`${t.start} - ${t.end}`, x+8, y1+22, w-16);
+    ctx.fillStyle = 'rgba(107,114,128,0.9)'; ctx.fillText(`${t.start} - ${t.end}`, x+8, y1+22, w-16);
     ctx.restore();
   }
 }
 
-export default function ExportMenu({ days, tasks }: { days: number; tasks: Task[] }) {
-  const filename = useMemo(() => {
-    const now = new Date();
-    const stamp = `${now.getFullYear()}${pad(now.getMonth()+1)}${pad(now.getDate())}_${pad(now.getHours())}${pad(now.getMinutes())}`;
-    return `planner_${stamp}.png`;
-  }, []);
-
+export default function ExportMenu({ days, tasks, anchorDate }: { days: number; tasks: Task[]; anchorDate: Date }) {
+  const filename = `planner_${new Date().getFullYear()}${pad(new Date().getMonth()+1)}${pad(new Date().getDate())}_${pad(new Date().getHours())}${pad(new Date().getMinutes())}.png`;
   return (
-    <button
-      className="rounded px-3 py-1 text-sm border"
-      onClick={async () => {
-        const canvas = document.createElement('canvas');
-        drawPlannerCanvas(canvas, days, tasks, { scale: 2 });
-        const url = canvas.toDataURL('image/png');
-        const a = document.createElement('a');
-        a.href = url; a.download = filename; a.click();
-      }}
-    >导出 PNG</button>
+    <button className="rounded px-3 py-1 text-sm border" onClick={() => {
+      const canvas = document.createElement('canvas');
+      drawPlannerCanvas(canvas, days, tasks, anchorDate, { scale: 2 });
+      const url = canvas.toDataURL('image/png');
+      const a = document.createElement('a'); a.href = url; a.download = filename; a.click();
+    }}>导出 PNG</button>
   );
 }
-

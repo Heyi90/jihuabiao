@@ -9,7 +9,7 @@ function startOfDay(d: Date) { const x = new Date(d); x.setHours(0,0,0,0); retur
 function addDays(d: Date, n: number) { const x = new Date(d); x.setDate(x.getDate()+n); return x; }
 function sameDate(a: Date, b: Date) { return a.getFullYear()===b.getFullYear() && a.getMonth()===b.getMonth() && a.getDate()===b.getDate(); }
 
-export default function MonthView({ tasks }: { tasks: Task[] }) {
+export default function MonthView({ tasks, anchorDate }: { tasks: Task[]; anchorDate: Date }) {
   const today = startOfDay(anchorDate);
   const monthStart = startOfDay(new Date(today.getFullYear(), today.getMonth(), 1));
   // 将日历起始对齐到周一（中国地区常用）
@@ -17,7 +17,8 @@ export default function MonthView({ tasks }: { tasks: Task[] }) {
   const viewStart = addDays(monthStart, -dow);
   const cells: Date[] = Array.from({ length: 42 }, (_, i) => addDays(viewStart, i)); // 6 行 * 7 列
 
-    // 计算每个任务的绝对日期：以 anchorDate 为基准\n  const tasksWithDate = tasks.map(t => ({ task: t, date: addDays(today, t.dayIndex) }));
+  // 计算每个任务的绝对日期：以 anchorDate 为基准
+  const tasksWithDate = tasks.map(t => ({ task: t, date: addDays(today, t.dayIndex) }));
 
   return (
     <div className="flex h-full flex-col">
@@ -38,7 +39,7 @@ export default function MonthView({ tasks }: { tasks: Task[] }) {
             <div key={idx} className={`border-r border-b p-2 text-xs ${inMonth? 'bg-background' : 'bg-zinc-50 dark:bg-zinc-900/40 text-zinc-400'}`}>
               <div className="mb-1 flex items-center justify-between">
                 <span className={`text-[11px] ${sameDate(d,today)? 'rounded bg-blue-500 px-1 text-white' : ''}`}>{d.getDate()}</span>
-                {sameDate(d,today) && <span className="text-[10px] text-blue-500">今日</span>}
+                {sameDate(d,today) && <span className="text-[10px] text-blue-500">本月</span>}
               </div>
               <div className="space-y-1">
                 {shown.map(t => (
@@ -53,4 +54,3 @@ export default function MonthView({ tasks }: { tasks: Task[] }) {
     </div>
   );
 }
-
