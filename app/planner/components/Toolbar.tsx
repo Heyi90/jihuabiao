@@ -35,7 +35,7 @@ export default function Toolbar({ view, onChangeView, days, onChangeDays, onPrev
         <div className="ml-2 flex items-center gap-2">
           <span className="text-sm text-zinc-600">颜色</span>
           {COLORS.map(c => (
-            <button key={c} title={`设为${c}`} disabled={!selectedTaskIds || selectedTaskIds.length===0} onClick={() => onChangeTaskColor && selectedTaskIds && selectedTaskIds.length>0 && onChangeTaskColor(c)} className={`h-5 w-5 rounded ${!selectedTaskId? 'opacity-30 cursor-not-allowed' : ''} ${c==='blue'?'bg-blue-500':''} ${c==='green'?'bg-green-500':''} ${c==='amber'?'bg-amber-500':''} ${c==='purple'?'bg-purple-500':''} ${c==='indigo'?'bg-indigo-500':''} ${c==='rose'?'bg-rose-500':''} ${c==='gray'?'bg-zinc-500':''}`}></button>
+            <button key={c} title={`设为${c}`} disabled={!selectedTaskIds || selectedTaskIds.length===0} onClick={() => onChangeTaskColor && selectedTaskIds && selectedTaskIds.length>0 && onChangeTaskColor(c)} className={`h-5 w-5 rounded ${(!selectedTaskIds || selectedTaskIds.length===0) ? 'opacity-30 cursor-not-allowed' : ''} ${c==='blue'?'bg-blue-500':''} ${c==='green'?'bg-green-500':''} ${c==='amber'?'bg-amber-500':''} ${c==='purple'?'bg-purple-500':''} ${c==='indigo'?'bg-indigo-500':''} ${c==='rose'?'bg-rose-500':''} ${c==='gray'?'bg-zinc-500':''}`}></button>
           ))}
         </div>
       </div>
@@ -68,4 +68,5 @@ export default function Toolbar({ view, onChangeView, days, onChangeDays, onPrev
     </div>
   );
 }
+
 
