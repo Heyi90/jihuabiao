@@ -1,5 +1,6 @@
 ﻿'use client';
 
+import type React from 'react';
 import TimelineY, { hoursRange } from './TimelineY';
 import { useCallback, useMemo, useRef, useState } from 'react';
 
@@ -29,7 +30,7 @@ function timeToMinutes(t: string) {
   const [hh, mm] = t.split(':').map(Number); return hh*60+mm;
 }
 function minutesToTime(m: number) {
-  const hh = Math.floor(m/60), mm = m%60; return ${String(hh).padStart(2,'0')}:;
+  const hh = Math.floor(m/60), mm = m%60; return `${String(hh).padStart(2,'0')}:${String(mm).padStart(2,'0')}`;
 }
 function snap30(mins: number) { return Math.round(mins/30)*30; }
 
@@ -62,7 +63,7 @@ export default function PlannerGrid({ days, tasks, onChangeTasks }: Props) {
     const base = new Date(); base.setHours(0,0,0,0);
     return Array.from({length: days}, (_, i) => {
       const d = new Date(base); d.setDate(base.getDate() + i);
-      return ${d.getMonth()+1}/;
+      return `${d.getMonth()+1}/${d.getDate()}`;
     });
   }, [days]);
 
@@ -164,14 +165,14 @@ export default function PlannerGrid({ days, tasks, onChangeTasks }: Props) {
         <div ref={gridRef} className="relative cursor-default select-none" onMouseMove={onMouseMove}>
           {/* hour rows background */}
           {hours.map((_, row) => (
-            <div key={row} className="pointer-events-none absolute left-0 right-0 border-t border-dashed border-zinc-200 dark:border-zinc-800" style={{ top: ${row*HOUR_PX}px}} />
+            <div key={row} className="pointer-events-none absolute left-0 right-0 border-t border-dashed border-zinc-200 dark:border-zinc-800" style={{ top: `${row*HOUR_PX}px`}} />
           ))}
           {/* half-hour minor lines */}
           {hours.slice(0,-1).map((_, row) => (
-            <div key={'h'+row} className="pointer-events-none absolute left-0 right-0 border-t border-zinc-100 dark:border-zinc-900" style={{ top: ${row*HOUR_PX+HOUR_PX/2}px}} />
+            <div key={'h'+row} className="pointer-events-none absolute left-0 right-0 border-t border-zinc-100 dark:border-zinc-900" style={{ top: `${row*HOUR_PX+HOUR_PX/2}px`}} />
           ))}
           {/* columns */}
-          <div className="relative flex" style={{ height: ${(hours.length-1)*HOUR_PX}px}}>
+          <div className="relative flex" style={{ height: `${(hours.length-1)*HOUR_PX}px`}}>
             {dayLabels.map((_, col) => (
               <div key={col} className="relative flex-1 border-r" onDoubleClick={(e) => handleCreateAt(col, e.clientY)}>
                 {/* tasks for this column */}
@@ -182,36 +183,36 @@ export default function PlannerGrid({ days, tasks, onChangeTasks }: Props) {
                   const isEdit = editingId===t.id;
                   return (
                     <div key={t.id}
-                         className={group absolute left-1 right-1 rounded-md border text-xs px-2 py-1 shadow-sm  }
+                         className={`group absolute left-1 right-1 rounded-md border text-xs px-2 py-1 shadow-sm ${t.done? 'bg-green-200/60 border-green-300 text-green-900 dark:bg-green-900/30 dark:border-green-800 dark:text-green-200 line-through' : 'bg-blue-100/60 border-blue-300 text-blue-900 dark:bg-blue-900/30 dark:border-blue-800 dark:text-blue-200'} ${isSel?'ring-2 ring-blue-400':''}`}
                          style={{ top, height }}
-                         title={${t.title} (-)}
+                         title={`${t.title} (${t.start}-${t.end})`}
                          onMouseDown={(e) => {
                            if (isEdit) return; // 编辑时不允许拖动
                            const target = e.target as HTMLElement;
-                           if (target.dataset && target.dataset.handle) return;
-                           const clone = e.altKey || e.ctrlKey;
+                           if (target.dataset && (target.dataset as any).handle) return;
+                           const clone = (e as any).altKey || (e as any).ctrlKey;
                            if (clone && onChangeTasks) {
                              const copy: Task = { ...t, id: 't'+Math.random().toString(36).slice(2,8) };
                              onChangeTasks([...tasks, copy]);
                              setSelectedId(copy.id);
-                             setDrag({ id: copy.id, type: 'move', startClientX: e.clientX, startClientY: e.clientY, orig: copy, duration: minutesBetween(copy.start, copy.end) });
+                             setDrag({ id: copy.id, type: 'move', startClientX: (e as any).clientX, startClientY: (e as any).clientY, orig: copy, duration: minutesBetween(copy.start, copy.end) });
                            } else {
                              setSelectedId(t.id);
-                             setDrag({ id: t.id, type: 'move', startClientX: e.clientX, startClientY: e.clientY, orig: t, duration: minutesBetween(t.start, t.end) });
+                             setDrag({ id: t.id, type: 'move', startClientX: (e as any).clientX, startClientY: (e as any).clientY, orig: t, duration: minutesBetween(t.start, t.end) });
                            }
                          }}
-                         onDoubleClick={(e) => { e.stopPropagation(); setEditingId(t.id); setEditingTitle(t.title); }}
+                         onDoubleClick={(e) => { (e as any).stopPropagation(); setEditingId(t.id); setEditingTitle(t.title); }}
                     >
                       {isEdit ? (
                         <input
                           autoFocus
                           className="w-full rounded border border-blue-400 bg-white/90 px-1 py-0.5 text-blue-900 outline-none dark:bg-zinc-900/90 dark:text-zinc-100"
                           value={editingTitle}
-                          onChange={(e) => setEditingTitle(e.target.value)}
+                          onChange={(e) => setEditingTitle((e as any).target.value)}
                           onBlur={commitEdit}
                           onKeyDown={(e) => {
-                            if (e.key==='Enter') commitEdit();
-                            if (e.key==='Escape') setEditingId(null);
+                            if ((e as any).key==='Enter') commitEdit();
+                            if ((e as any).key==='Escape') setEditingId(null);
                           }}
                         />
                       ) : (
@@ -221,12 +222,12 @@ export default function PlannerGrid({ days, tasks, onChangeTasks }: Props) {
                           {/* resize handles */}
                           <div
                             data-handle
-                            onMouseDown={(e) => { e.stopPropagation(); setSelectedId(t.id); setDrag({ id: t.id, type: 'resize-top', startClientX: e.clientX, startClientY: e.clientY, orig: t, duration: minutesBetween(t.start, t.end) }); }}
+                            onMouseDown={(e) => { (e as any).stopPropagation(); setSelectedId(t.id); setDrag({ id: t.id, type: 'resize-top', startClientX: (e as any).clientX, startClientY: (e as any).clientY, orig: t, duration: minutesBetween(t.start, t.end) }); }}
                             className="absolute -top-1 left-1 right-1 h-2 cursor-n-resize rounded bg-blue-400/50 opacity-0 transition-opacity group-hover:opacity-100 dark:bg-blue-600/50"
                           />
                           <div
                             data-handle
-                            onMouseDown={(e) => { e.stopPropagation(); setSelectedId(t.id); setDrag({ id: t.id, type: 'resize-bottom', startClientX: e.clientX, startClientY: e.clientY, orig: t, duration: minutesBetween(t.start, t.end) }); }}
+                            onMouseDown={(e) => { (e as any).stopPropagation(); setSelectedId(t.id); setDrag({ id: t.id, type: 'resize-bottom', startClientX: (e as any).clientX, startClientY: (e as any).clientY, orig: t, duration: minutesBetween(t.start, t.end) }); }}
                             className="absolute -bottom-1 left-1 right-1 h-2 cursor-s-resize rounded bg-blue-400/50 opacity-0 transition-opacity group-hover:opacity-100 dark:bg-blue-600/50"
                           />
                         </>

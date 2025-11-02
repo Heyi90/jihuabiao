@@ -18,7 +18,7 @@ export default function Toolbar({ view, onChangeView, days, onChangeDays }: Prop
         <span className="text-sm text-zinc-600">视图</span>
         {(['day','week','month'] as ViewMode[]).map(v => (
           <button key={v} onClick={() => onChangeView(v)}
-            className={ounded px-3 py-1 text-sm border }>
+            className={`rounded px-3 py-1 text-sm border ${view===v ? 'bg-zinc-100 dark:bg-zinc-800' : ''}`}>
             {v==='day'?'日':v==='week'?'周':'月'}
           </button>
         ))}
@@ -27,7 +27,7 @@ export default function Toolbar({ view, onChangeView, days, onChangeDays }: Prop
         <span className="text-sm text-zinc-600">周期</span>
         {[3,7,15].map(n => (
           <button key={n} onClick={() => onChangeDays(n)}
-            className={ounded px-3 py-1 text-sm border }>{n}天</button>
+            className={`rounded px-3 py-1 text-sm border ${days===n ? 'bg-zinc-100 dark:bg-zinc-800' : ''}`}>{n}天</button>
         ))}
         <button className="rounded px-3 py-1 text-sm border" onClick={() => {
           const v = prompt('自定义天数 (1-30)');
