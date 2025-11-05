@@ -14,7 +14,7 @@ function dataDir() { return path!.join(process.cwd(), 'data'); }
 
 export async function getUser(username: string): Promise<UserRecord | null> {
   if (hasKV()) {
-    const s = await kv.get<string>(`user:${username}`);
+    const s = await kv.get(`user:${username}`);
     return s ? JSON.parse(s) as UserRecord : null;
   }
   const file = path!.join(dataDir(), 'users', `${username}.json`);
@@ -39,7 +39,7 @@ export async function hasUser(username: string): Promise<boolean> {
 
 export async function getPlan(username: string): Promise<PlanRecord | null> {
   if (hasKV()) {
-    const s = await kv.get<string>(`plan:${username}`);
+    const s = await kv.get(`plan:${username}`);
     return s ? JSON.parse(s) as PlanRecord : null;
   }
   const file = path!.join(dataDir(), 'plans', `${username}.json`);
@@ -82,9 +82,10 @@ export async function listHistory(username: string, limit=20): Promise<Array<{ts
 
 export async function getHistory(username: string, ts: number): Promise<PlanRecord | null> {
   if (hasKV()) {
-    const s = await kv.get<string>(`plan_hist:${username}:${ts}`);
+    const s = await kv.get(`plan_hist:${username}:${ts}`);
     return s ? JSON.parse(s) as PlanRecord : null;
   }
   const file = path!.join(dataDir(), 'plans_history', username, `${ts}.json`);
   try { const s = await fs!.readFile(file, 'utf8'); return JSON.parse(s) as PlanRecord; } catch { return null; }
 }
+
