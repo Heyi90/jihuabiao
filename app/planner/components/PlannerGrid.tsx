@@ -1,4 +1,4 @@
-﻿'use client';
+'use client';
 
 import type React from 'react';
 import TimelineY, { hoursRange } from './TimelineY';
@@ -103,7 +103,7 @@ export default function PlannerGrid({ days, tasks, onChangeTasks, anchorDate, on
     const parts = dtfHM.formatToParts(new Date());
     const hh = parts.find(p=>p.type==='hour')?.value ?? '00';
     const mm = parts.find(p=>p.type==='minute')?.value ?? '00';
-    const y = timeToOffsetPx(``${hh}:${mm}``);
+    const y = timeToOffsetPx(`${hh}:${mm}`);
     return { dayIndex, y } as { dayIndex:number; y:number };
   }, [anchorDate, days]);
 
