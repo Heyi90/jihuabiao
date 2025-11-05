@@ -1,4 +1,4 @@
-'use client';
+﻿'use client';
 
 import type React from 'react';
 import TimelineY, { hoursRange } from './TimelineY';
@@ -83,14 +83,27 @@ export default function PlannerGrid({ days, tasks, onChangeTasks, anchorDate, on
   const [marquee, setMarquee] = useState<null | {startX:number; startY:number; x:number; y:number}>(null);
 
   const heightPx = (hours.length - 1) * HOUR_PX;
-  const nowLine = useMemo(() => {
-    const base = new Date(anchorDate ?? new Date()); base.setHours(0,0,0,0);
-    const now = new Date(); const today = new Date(now); today.setHours(0,0,0,0);
-    const dayIndex = Math.floor((today.getTime() - base.getTime())/86400000);
+    const nowLine = useMemo(() => {
+    // Compute current time and day using Beijing time (Asia/Shanghai)
+    const dtfYMD = new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Shanghai', year: 'numeric', month: '2-digit', day: '2-digit' });
+    const dtfHM = new Intl.DateTimeFormat('en-GB', { timeZone: 'Asia/Shanghai', hour: '2-digit', minute: '2-digit', hour12: false });
+
+    const beijingYMD = (d: Date) => {
+      const s = dtfYMD.format(d); // e.g. 2025-11-05
+      const [y, m, d2] = s.split('-').map(Number);
+      return { y, m, d: d2 };
+    };
+    const serialDay = (ymd: {y:number;m:number;d:number}) => Math.floor(Date.UTC(ymd.y, ymd.m-1, ymd.d) / 86400000);
+
+    const baseYMD = beijingYMD(anchorDate ?? new Date());
+    const todayYMD = beijingYMD(new Date());
+    const dayIndex = serialDay(todayYMD) - serialDay(baseYMD);
     if (dayIndex < 0 || dayIndex >= days) return null;
-    const hh = String(now.getHours()).padStart(2,'0');
-    const mm = String(now.getMinutes()).padStart(2,'0');
-    const y = timeToOffsetPx((hh+':'+mm));
+
+    const parts = dtfHM.formatToParts(new Date());
+    const hh = parts.find(p=>p.type==='hour')?.value ?? '00';
+    const mm = parts.find(p=>p.type==='minute')?.value ?? '00';
+    const y = timeToOffsetPx(${hh}:);
     return { dayIndex, y } as { dayIndex:number; y:number };
   }, [anchorDate, days]);
 
@@ -156,7 +169,7 @@ export default function PlannerGrid({ days, tasks, onChangeTasks, anchorDate, on
     let startMin = START_HOUR*60 + minutesFromStart;
     let endMin = startMin + 60;
     if (endMin > END_HOUR*60) { endMin = END_HOUR*60; startMin = Math.max(START_HOUR*60, endMin - 60); }
-    const newTask: Task = { id: 't' + Math.random().toString(36).slice(2,8), title: '新任务', dayIndex: clamp(col, 0, days-1), start: minutesToTime(startMin), end: minutesToTime(endMin), color: 'blue' };
+    const newTask: Task = { id: 't' + Math.random().toString(36).slice(2,8), title: '鏂颁换鍔?, dayIndex: clamp(col, 0, days-1), start: minutesToTime(startMin), end: minutesToTime(endMin), color: 'blue' };
     onChangeTasks([...tasks, newTask]);
     setSel([newTask.id]);
   }, [days, heightPx, onChangeTasks, tasks]);
@@ -310,7 +323,7 @@ export default function PlannerGrid({ days, tasks, onChangeTasks, anchorDate, on
                             <span>{t.title}</span>
                             <div className="flex items-center gap-2">
                               {isConflict && <span className="ml-1 rounded bg-red-500/80 px-1 text-[10px] leading-4 text-white">CONF</span>}
-                              <button aria-label="toggle done" className={`h-4 w-4 rounded border text-[10px] leading-3 ${t.done?'bg-green-500 text-white border-green-600':'bg-white/60 dark:bg-zinc-900/60'}`} onClick={(e) => { (e as any).stopPropagation(); onChangeTasks?.(tasks.map(x=> x.id===t.id ? { ...x, done: !x.done } : x)); }}>{t.done ? '✓' : ''}</button>
+                              <button aria-label="toggle done" className={`h-4 w-4 rounded border text-[10px] leading-3 ${t.done?'bg-green-500 text-white border-green-600':'bg-white/60 dark:bg-zinc-900/60'}`} onClick={(e) => { (e as any).stopPropagation(); onChangeTasks?.(tasks.map(x=> x.id===t.id ? { ...x, done: !x.done } : x)); }}>{t.done ? '鉁? : ''}</button>
                             </div>
                           </div>
                           <div className="opacity-70">{t.start} - {t.end}</div>
@@ -329,6 +342,7 @@ export default function PlannerGrid({ days, tasks, onChangeTasks, anchorDate, on
     </div>
   );
 }
+
 
 
 
