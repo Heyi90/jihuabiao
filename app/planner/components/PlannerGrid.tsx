@@ -1,4 +1,4 @@
-﻿'use client';
+'use client';
 
 import type React from 'react';
 import TimelineY, { hoursRange } from './TimelineY';
@@ -169,7 +169,7 @@ export default function PlannerGrid({ days, tasks, onChangeTasks, anchorDate, on
     let startMin = START_HOUR*60 + minutesFromStart;
     let endMin = startMin + 60;
     if (endMin > END_HOUR*60) { endMin = END_HOUR*60; startMin = Math.max(START_HOUR*60, endMin - 60); }
-    const newTask: Task = { id: 't' + Math.random().toString(36).slice(2,8), title: 'New Task'blue' };
+    const newTask: Task = { id: 't' + Math.random().toString(36).slice(2,8), title: 'New Task', dayIndex: clamp(col, 0, days-1), start: minutesToTime(startMin), end: minutesToTime(endMin), color: 'blue' };
     onChangeTasks([...tasks, newTask]);
     setSel([newTask.id]);
   }, [days, heightPx, onChangeTasks, tasks]);
