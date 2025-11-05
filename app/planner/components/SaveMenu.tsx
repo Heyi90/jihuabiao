@@ -2,12 +2,14 @@
 
 import type { Task } from './PlannerGrid';
 import { useEffect, useMemo, useState } from 'react';
+import { useToast } from './Toast';
 
 export default function SaveMenu({ tasks, view, days, anchorDate, onLoad }: { tasks: Task[]; view: 'day'|'week'|'month'; days: number; anchorDate: Date; onLoad: (data: any)=>void }) {
   const [username, setUsername] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
   const [loadedOnce, setLoadedOnce] = useState(false);
   const [lastSavedAt, setLastSavedAt] = useState<number | null>(null);
+  const toast = useToast();
 
   async function refreshMe() {
     try {
@@ -23,7 +25,10 @@ export default function SaveMenu({ tasks, view, days, anchorDate, onLoad }: { ta
   useEffect(()=>{
     (async () => {
       if (!username || loadedOnce) return;
-      try { const res = await fetch('/api/plan', { cache: 'no-store' }); if (res.ok) { const j = await res.json(); onLoad(j); } } finally { setLoadedOnce(true); }
+      try {
+        const res = await fetch('/api/plan', { cache: 'no-store' });
+        if (res.ok) { const j = await res.json(); onLoad(j); toast.show('已加载最近一次保存'); }
+      } finally { setLoadedOnce(true); }
     })();
   }, [username, loadedOnce, onLoad]);
 
@@ -33,7 +38,7 @@ export default function SaveMenu({ tasks, view, days, anchorDate, onLoad }: { ta
     setLoading(true);
     try {
       const res = await fetch('/api/plan', { method: 'PUT', headers: { 'content-type': 'application/json' }, body: serial });
-      if (res.ok) { setLastSavedAt(Date.now()); alert('已保存'); } else alert('保存失败，请先登录');
+      if (res.ok) { setLastSavedAt(Date.now()); toast.show('已保存'); } else toast.show('保存失败，请先登录');
     } finally { setLoading(false); }
   }
 
@@ -41,22 +46,22 @@ export default function SaveMenu({ tasks, view, days, anchorDate, onLoad }: { ta
     setLoading(true);
     try {
       const res = await fetch('/api/plan', { cache: 'no-store' });
-      if (res.ok) { const j = await res.json(); onLoad(j); } else { alert('读取失败，请先登录'); }
+      if (res.ok) { const j = await res.json(); onLoad(j); toast.show('已加载最近数据'); } else { toast.show('读取失败，请先登录'); }
     } finally { setLoading(false); }
   }
 
   async function history() {
     const res = await fetch('/api/plan/history');
-    if (!res.ok) { alert('请先登录'); return; }
+    if (!res.ok) { toast.show('请先登录'); return; }
     const j = await res.json();
-    if (!j.items || j.items.length === 0) { alert('暂无历史'); return; }
+    if (!j.items || j.items.length === 0) { toast.show('暂无历史'); return; }
     const list = j.items.map((x: any, i: number) => `${i+1}. ${x.label}`).join('\n');
     const v = prompt(`选择历史版本编号:\n${list}`);
     const n = v ? parseInt(v, 10) : NaN;
     if (!n || n<1 || n>j.items.length) return;
     const pick = j.items[n-1];
     const r2 = await fetch(`/api/plan/history?ts=${pick.ts}`);
-    if (r2.ok) { const d = await r2.json(); onLoad(d); } else { alert('加载失败'); }
+    if (r2.ok) { const d = await r2.json(); onLoad(d); toast.show('已加载历史版本'); } else { toast.show('加载失败'); }
   }
 
   async function logout() {
@@ -70,21 +75,23 @@ export default function SaveMenu({ tasks, view, days, anchorDate, onLoad }: { ta
     return s <= 5 ? '刚刚已保存' : `已保存 ${s}s 前`;
   }
 
+  const btn = "rounded border px-3 py-1 text-sm hover:bg-zinc-50 dark:hover:bg-zinc-800 disabled:opacity-50 disabled:cursor-not-allowed";
+
   return (
     <div className="flex items-center gap-2">
       {username ? (
         <>
           <span className="text-sm text-zinc-600">{username}</span>
           {savedLabel() && <span className="text-xs text-zinc-500">{savedLabel()}</span>}
-          <button disabled={loading} className="rounded border px-3 py-1 text-sm" onClick={save}>保存</button>
-          <button disabled={loading} className="rounded border px-3 py-1 text-sm" onClick={load}>加载</button>
-          <button disabled={loading} className="rounded border px-3 py-1 text-sm" onClick={history}>历史</button>
-          <button disabled={loading} className="rounded border px-3 py-1 text-sm" onClick={logout}>退出</button>
+          <button disabled={loading} className={btn} onClick={save}>保存</button>
+          <button disabled={loading} className={btn} onClick={load}>加载</button>
+          <button disabled={loading} className={btn} onClick={history}>历史</button>
+          <button disabled={loading} className={btn} onClick={logout}>退出</button>
         </>
       ) : (
         <>
-          <a className="rounded border px-3 py-1 text-sm" href="/login">登录</a>
-          <a className="rounded border px-3 py-1 text-sm" href="/register">注册</a>
+          <a className={btn} href="/login">登录</a>
+          <a className={btn} href="/register">注册</a>
         </>
       )}
     </div>
