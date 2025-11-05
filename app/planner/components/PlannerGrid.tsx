@@ -103,7 +103,7 @@ export default function PlannerGrid({ days, tasks, onChangeTasks, anchorDate, on
     const parts = dtfHM.formatToParts(new Date());
     const hh = parts.find(p=>p.type==='hour')?.value ?? '00';
     const mm = parts.find(p=>p.type==='minute')?.value ?? '00';
-    const y = timeToOffsetPx(${hh}:);
+    const y = timeToOffsetPx(``${hh}:${mm}``);
     return { dayIndex, y } as { dayIndex:number; y:number };
   }, [anchorDate, days]);
 
@@ -342,6 +342,7 @@ export default function PlannerGrid({ days, tasks, onChangeTasks, anchorDate, on
     </div>
   );
 }
+
 
 
 
