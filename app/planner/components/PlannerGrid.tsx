@@ -323,7 +323,7 @@ export default function PlannerGrid({ days, tasks, onChangeTasks, anchorDate, on
                             <span>{t.title}</span>
                             <div className="flex items-center gap-2">
                               {isConflict && <span className="ml-1 rounded bg-red-500/80 px-1 text-[10px] leading-4 text-white">CONF</span>}
-                              <button aria-label="toggle done" className={`h-4 w-4 rounded border text-[10px] leading-3 ${t.done?'bg-green-500 text-white border-green-600':'bg-white/60 dark:bg-zinc-900/60'}`} onClick={(e) => { (e as any).stopPropagation(); onChangeTasks?.(tasks.map(x=> x.id===t.id ? { ...x, done: !x.done } : x)); }}>{t.done ? '閴? : ''}</button>
+                              <button aria-label="toggle done" className={`h-4 w-4 rounded border text-[10px] leading-3 ${t.done?'bg-green-500 text-white border-green-600':'bg-white/60 dark:bg-zinc-900/60'}`} onClick={(e) => { (e as any).stopPropagation(); onChangeTasks?.(tasks.map(x=> x.id===t.id ? { ...x, done: !x.done } : x)); }}>{t.done ? '\u2713' : ''}</button>
                             </div>
                           </div>
                           <div className="opacity-70">{t.start} - {t.end}</div>
@@ -342,6 +342,7 @@ export default function PlannerGrid({ days, tasks, onChangeTasks, anchorDate, on
     </div>
   );
 }
+
 
 
 
