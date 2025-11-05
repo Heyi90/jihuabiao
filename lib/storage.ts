@@ -3,10 +3,7 @@ export type PlanRecord = { tasks: any[]; view: 'day'|'week'|'month'; days: numbe
 
 const fs = typeof process === 'object' ? await import('fs/promises').catch(()=>null) : null;
 const path = typeof process === 'object' ? await import('path').catch(()=>null) : null;
-let kv: any = null;
-try { kv = (await import('@vercel/kv')).kv; } catch {}
-
-function hasKV() { return !!kv && !!process.env.KV_REST_API_URL; }
+param($m) "$($m.Value)`n$helper" 
 
 // FS helpers for local dev fallback
 async function ensureDir(p: string) { if (!fs) return; try { await fs.mkdir(p, { recursive: true }); } catch {} }
@@ -88,4 +85,5 @@ export async function getHistory(username: string, ts: number): Promise<PlanReco
   const file = path!.join(dataDir(), 'plans_history', username, `${ts}.json`);
   try { const s = await fs!.readFile(file, 'utf8'); return JSON.parse(s) as PlanRecord; } catch { return null; }
 }
+
 
