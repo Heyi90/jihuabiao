@@ -4,6 +4,7 @@ import { useMemo, useState } from 'react';
 import Toolbar from './components/Toolbar';
 import PlannerGrid, { Task } from './components/PlannerGrid';
 import ExportMenu from './components/ExportMenu';
+import SaveMenu from './components/SaveMenu';
 import MonthView from './components/MonthView';
 
 type ViewMode = 'day' | 'week' | 'month';
@@ -68,7 +69,7 @@ export default function PlannerPage() {
         rangeLabel={rangeLabel}
         selectedTaskIds={selectedTaskIds}
         onChangeTaskColor={(c) => setTasks(prev => prev.map(t => (selectedTaskIds.includes(t.id) ? { ...t, color: c } : t)))}
-        extraRight={<ExportMenu days={days} tasks={derivedTasks} anchorDate={anchorDate} />}
+        extraRight={<><SaveMenu tasks={derivedTasks} view={view} days={days} anchorDate={anchorDate} onLoad={(j)=>{ setView((j.view==='month'?'month':'week') as any); setDays(Number(j.days)||7); setAnchorDate(new Date(j.anchorDate||anchorDate)); setTasks(Array.isArray(j.tasks)? j.tasks.map((t:any)=>({ ...t, dayIndex: Number(t.dayIndex)||0, start: t.start, end: t.end, title: String(t.title||'') })) : tasks); }} /><ExportMenu days={days} tasks={derivedTasks} anchorDate={anchorDate} /></>}
       />
       <div className="flex-1">
         {view === 'month' ? (
