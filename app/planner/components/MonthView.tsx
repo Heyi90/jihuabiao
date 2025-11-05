@@ -47,13 +47,13 @@ export default function MonthView({ tasks, anchorDate }: { tasks: Task[]; anchor
             <div key={idx} className={`border-r border-b p-2 text-xs ${inMonth? 'bg-background' : 'bg-zinc-50 dark:bg-zinc-900/40 text-zinc-400'}`}>
               <div className="mb-1 flex items-center justify-between">
                 <span className={`text-[11px] ${sameDate(d,today)? 'rounded bg-blue-500 px-1 text-white' : ''}`}>{d.getDate()}</span>
-                {sameDate(d,today) && <span className="text-[10px] text-blue-500">本月</span>}
+                {sameDate(d,today) && <span className="text-[10px] text-blue-500">今天</span>}
               </div>
               <div className="space-y-1">
                 {shown.map(t => (
                   <div key={t.id} className={`truncate rounded px-1 py-0.5 ${chipClass(t)}`}>{t.title}</div>
                 ))}
-                {more>0 && <div className="truncate text-[10px] text-zinc-500">+{more} 更多</div>}
+                {more>0 && <div className="truncate text-[10px] text-zinc-500">+{more} 个任务</div>}
               </div>
             </div>
           );

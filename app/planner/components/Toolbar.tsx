@@ -37,7 +37,7 @@ export default function Toolbar({ view, onChangeView, days, onChangeDays, onPrev
           {COLORS.map(c => (
             <button
               key={c}
-              title={`设为${c}`}
+              title={`改为${c}`}
               disabled={disabled}
               onClick={() => !disabled && onChangeTaskColor && onChangeTaskColor(c)}
               className={`h-5 w-5 rounded ${disabled ? 'opacity-30 cursor-not-allowed' : ''} ${c==='blue'?'bg-blue-500':''} ${c==='green'?'bg-green-500':''} ${c==='amber'?'bg-amber-500':''} ${c==='purple'?'bg-purple-500':''} ${c==='indigo'?'bg-indigo-500':''} ${c==='rose'?'bg-rose-500':''} ${c==='gray'?'bg-zinc-500':''}`}
@@ -55,7 +55,7 @@ export default function Toolbar({ view, onChangeView, days, onChangeDays, onPrev
         </div>
         {isTimeline && (
           <div className="flex items-center gap-2">
-            <span className="text-sm text-zinc-600">窗口</span>
+            <span className="text-sm text-zinc-600">天数</span>
             {[1,3,7,15].map(n => (
               <button key={n} onClick={() => onChangeDays(n)} className={`rounded px-3 py-1 text-sm border ${days===n ? 'bg-zinc-100 dark:bg-zinc-800' : ''}`}>{n}天</button>
             ))}
