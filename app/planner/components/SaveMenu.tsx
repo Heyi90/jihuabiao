@@ -1,44 +1,38 @@
 ﻿'use client';
 
 import type { Task } from './PlannerGrid';
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 
 export default function SaveMenu({ tasks, view, days, anchorDate, onLoad }: { tasks: Task[]; view: 'day'|'week'|'month'; days: number; anchorDate: Date; onLoad: (data: any)=>void }) {
   const [username, setUsername] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
-  const [auto, setAuto] = useState<boolean>(true);
-  const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const [loadedOnce, setLoadedOnce] = useState(false);
   const [lastSavedAt, setLastSavedAt] = useState<number | null>(null);
 
   async function refreshMe() {
-    try { const r = await fetch('/api/auth/me', { cache: 'no-store' }); if (r.ok) { const j = await r.json(); setUsername(j.username); } else { setUsername(null); } } catch { setUsername(null); }
+    try {
+      const r = await fetch('/api/auth/me', { cache: 'no-store' });
+      if (r.ok) { const j = await r.json(); setUsername(j.username); } else { setUsername(null); }
+    } catch { setUsername(null); }
   }
 
-  useEffect(()=>{ setAuto(localStorage.getItem('autoSave') !== 'false'); refreshMe(); }, []);
-  useEffect(()=>{ localStorage.setItem('autoSave', String(auto)); }, [auto]);
+  // 首次挂载检查登录状态
+  useEffect(()=>{ refreshMe(); }, []);
 
-  const serial = useMemo(()=> JSON.stringify({ tasks, view, days, anchorDate: anchorDate.toISOString() }), [tasks, view, days, anchorDate]);
+  // 登录后自动加载最近一次保存
+  useEffect(()=>{
+    (async () => {
+      if (!username || loadedOnce) return;
+      try { const res = await fetch('/api/plan', { cache: 'no-store' }); if (res.ok) { const j = await res.json(); onLoad(j); } } finally { setLoadedOnce(true); }
+    })();
+  }, [username, loadedOnce, onLoad]);
 
-  // debounce auto-save
-  useEffect(()=> {
-    if (!username || !auto) return; // only when logged in and auto enabled
-    if (timerRef.current) clearTimeout(timerRef.current);
-    timerRef.current = setTimeout(async () => {
-      try {
-        const res = await fetch('/api/plan', { method: 'PUT', headers: { 'content-type': 'application/json' }, body: serial });
-        if (res.ok) setLastSavedAt(Date.now());
-      } catch {}
-    }, 1500);
-    return () => { if (timerRef.current) clearTimeout(timerRef.current); };
-  }, [serial, username, auto]);
+  const serial = useMemo(() => JSON.stringify({ tasks, view, days, anchorDate: anchorDate.toISOString() }), [tasks, view, days, anchorDate]);
 
   async function save() {
     setLoading(true);
     try {
-      const res = await fetch('/api/plan', {
-        method: 'PUT', headers: { 'content-type': 'application/json' },
-        body: serial
-      });
+      const res = await fetch('/api/plan', { method: 'PUT', headers: { 'content-type': 'application/json' }, body: serial });
       if (res.ok) { setLastSavedAt(Date.now()); alert('已保存'); } else alert('保存失败，请先登录');
     } finally { setLoading(false); }
   }
@@ -46,7 +40,7 @@ export default function SaveMenu({ tasks, view, days, anchorDate, onLoad }: { ta
   async function load() {
     setLoading(true);
     try {
-      const res = await fetch('/api/plan');
+      const res = await fetch('/api/plan', { cache: 'no-store' });
       if (res.ok) { const j = await res.json(); onLoad(j); } else { alert('读取失败，请先登录'); }
     } finally { setLoading(false); }
   }
@@ -81,7 +75,6 @@ export default function SaveMenu({ tasks, view, days, anchorDate, onLoad }: { ta
       {username ? (
         <>
           <span className="text-sm text-zinc-600">{username}</span>
-          <label className="flex items-center gap-1 text-sm text-zinc-600"><input type="checkbox" checked={auto} onChange={e=>setAuto(e.target.checked)} />自动保存</label>
           {savedLabel() && <span className="text-xs text-zinc-500">{savedLabel()}</span>}
           <button disabled={loading} className="rounded border px-3 py-1 text-sm" onClick={save}>保存</button>
           <button disabled={loading} className="rounded border px-3 py-1 text-sm" onClick={load}>加载</button>
