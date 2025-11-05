@@ -15,7 +15,7 @@ function fmt(ts: number) {
 }
 
 export async function GET(req: Request) {
-  const u = getAuthUsernameFromCookies();
+  const u = await getAuthUsernameFromCookies();
   if (!u) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
   const url = new URL(req.url);
   const ts = url.searchParams.get('ts');
@@ -40,4 +40,5 @@ export async function GET(req: Request) {
     return NextResponse.json({ items: [] });
   }
 }
+
 

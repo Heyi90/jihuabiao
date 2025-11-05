@@ -10,7 +10,7 @@ const PLANS_DIR = join(DATA_DIR, 'plans');
 const HIST_DIR = join(DATA_DIR, 'plans_history');
 
 export async function GET() {
-  const u = getAuthUsernameFromCookies();
+  const u = await getAuthUsernameFromCookies();
   if (!u) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
   const file = join(PLANS_DIR, `${u}.json`);
   try {
@@ -22,7 +22,7 @@ export async function GET() {
 }
 
 export async function PUT(req: Request) {
-  const u = getAuthUsernameFromCookies();
+  const u = await getAuthUsernameFromCookies();
   if (!u) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
   const body = await req.json();
   if (!Array.isArray(body.tasks)) return NextResponse.json({ error: 'Invalid payload' }, { status: 400 });
@@ -37,3 +37,4 @@ export async function PUT(req: Request) {
   } catch {}
   return NextResponse.json({ ok: true });
 }
+

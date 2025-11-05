@@ -22,10 +22,11 @@ export async function POST(req: Request) {
     if (!verifyPassword(password, data.password)) return NextResponse.json({ error: '账号或密码错误' }, { status: 401 });
 
     const res = NextResponse.json({ ok: true, username });
-    setAuthCookie(username, remember ? 7 : null);
+    await setAuthCookie(username, remember ? 7 : null);
     return res;
   } catch {
     return NextResponse.json({ error: '账号或密码错误' }, { status: 401 });
   }
 }
+
 

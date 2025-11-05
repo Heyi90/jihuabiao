@@ -34,16 +34,9 @@ export function verifyToken(token: string): JwtPayload | null {
   } catch { return null; }
 }
 
-export function getAuthUsernameFromCookies() {
-  const token = cookies().get(TOKEN_NAME)?.value;
-  if (!token) return null;
-  const payload = verifyToken(token);
-  return payload?.u ?? null;
-}
+export async function getAuthUsernameFromCookies() {\n  const store = await cookies();\n  const token = store.get(TOKEN_NAME)?.value;\n  if (!token) return null;\n  const payload = verifyToken(token);\n  return payload?.u ?? null;\n}
 
-export function setAuthCookie(username: string, days: number | null) {
-  const exp = days ? Date.now() + days*24*60*60*1000 : Date.now() + 24*60*60*1000; // default 1d
-  const token = signToken({ u: username, exp });
+export async function setAuthCookie(username: string, days: number | null) {\n  const exp = days ? Date.now() + days*24*60*60*1000 : Date.now() + 24*60*60*1000;\n  const token = signToken({ u: username, exp });\n  const store = await cookies();\n  store.set({\n    name: TOKEN_NAME,\n    value: token,\n    httpOnly: true,\n    sameSite: 'lax',\n    path: '/',\n    ...(days ? { expires: new Date(exp) } : {}),\n    secure: process.env.NODE_ENV === 'production',\n  });\n});
   cookies().set({
     name: TOKEN_NAME,
     value: token,
@@ -78,6 +71,6 @@ export function sanitizeUsername(u: string) {
   return u;
 }
 
-export function clearAuthCookie() {
-  try { cookies().delete('auth_token'); } catch {}
+export async function clearAuthCookie() {\n  try { (await cookies()).delete(TOKEN_NAME); } catch {}\n} catch {}
 }
+
