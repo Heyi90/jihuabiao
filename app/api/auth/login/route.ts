@@ -1,12 +1,8 @@
 ﻿export const runtime = 'nodejs';
 
 import { NextResponse } from 'next/server';
-import { readFile } from 'fs/promises';
-import { join } from 'path';
 import { sanitizeUsername, verifyPassword, setAuthCookie } from '@/lib/auth';
-
-const DATA_DIR = join(process.cwd(), 'data');
-const USERS_DIR = join(DATA_DIR, 'users');
+import { getUser } from '@/lib/storage';
 
 export async function POST(req: Request) {
   try {
@@ -16,10 +12,8 @@ export async function POST(req: Request) {
     const remember = Boolean(body.remember);
     if (!username || !password) return NextResponse.json({ error: '账号或密码错误' }, { status: 401 });
 
-    const userPath = join(USERS_DIR, `${username}.json`);
-    let data: any;
-    try { data = JSON.parse(await readFile(userPath, 'utf8')); } catch { return NextResponse.json({ error: '账号或密码错误' }, { status: 401 }); }
-    if (!verifyPassword(password, data.password)) return NextResponse.json({ error: '账号或密码错误' }, { status: 401 });
+    const data = await getUser(username);
+    if (!data || !verifyPassword(password, data.password)) return NextResponse.json({ error: '账号或密码错误' }, { status: 401 });
 
     const res = NextResponse.json({ ok: true, username });
     await setAuthCookie(username, remember ? 7 : null);
@@ -28,5 +22,3 @@ export async function POST(req: Request) {
     return NextResponse.json({ error: '账号或密码错误' }, { status: 401 });
   }
 }
-
-

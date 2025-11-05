@@ -1,12 +1,8 @@
 ﻿export const runtime = 'nodejs';
 
 import { NextResponse } from 'next/server';
-import { mkdir, readFile, writeFile } from 'fs/promises';
-import { join } from 'path';
 import { hashPassword, sanitizeUsername } from '@/lib/auth';
-
-const DATA_DIR = join(process.cwd(), 'data');
-const USERS_DIR = join(DATA_DIR, 'users');
+import { getUser, hasUser, setUser } from '@/lib/storage';
 
 export async function POST(req: Request) {
   try {
@@ -16,19 +12,12 @@ export async function POST(req: Request) {
     if (!username) return NextResponse.json({ error: '用户名无效（3-32 位，字母/数字/下划线/连字符）' }, { status: 400 });
     if (password.length < 8) return NextResponse.json({ error: '密码至少 8 位' }, { status: 400 });
 
-    await mkdir(USERS_DIR, { recursive: true });
-    const userPath = join(USERS_DIR, `${username}.json`);
-    try { await readFile(userPath); return NextResponse.json({ error: '用户名已存在' }, { status: 409 }); } catch {}
+    if (await hasUser(username)) return NextResponse.json({ error: '用户名已存在' }, { status: 409 });
 
-    const record = {
-      username,
-      password: hashPassword(password),
-      createdAt: new Date().toISOString(),
-    };
-    await writeFile(userPath, JSON.stringify(record, null, 2), 'utf8');
+    const record = { username, password: hashPassword(password), createdAt: new Date().toISOString() };
+    await setUser(record);
     return NextResponse.json({ ok: true });
-  } catch (e) {
+  } catch {
     return NextResponse.json({ error: 'Bad Request' }, { status: 400 });
   }
 }
-
