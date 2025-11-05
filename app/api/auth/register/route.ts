@@ -1,4 +1,6 @@
-﻿import { NextResponse } from 'next/server';
+﻿export const runtime = 'nodejs';
+
+import { NextResponse } from 'next/server';
 import { mkdir, readFile, writeFile } from 'fs/promises';
 import { join } from 'path';
 import { hashPassword, sanitizeUsername } from '@/lib/auth';
@@ -29,3 +31,4 @@ export async function POST(req: Request) {
     return NextResponse.json({ error: 'Bad Request' }, { status: 400 });
   }
 }
+

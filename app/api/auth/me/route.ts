@@ -1,4 +1,6 @@
-﻿import { NextResponse } from 'next/server';
+﻿export const runtime = 'nodejs';
+
+import { NextResponse } from 'next/server';
 import { getAuthUsernameFromCookies } from '@/lib/auth';
 
 export async function GET() {
@@ -6,3 +8,4 @@ export async function GET() {
   if (!u) return NextResponse.json({ authenticated: false }, { status: 401 });
   return NextResponse.json({ authenticated: true, username: u });
 }
+

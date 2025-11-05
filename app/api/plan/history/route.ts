@@ -1,4 +1,6 @@
-﻿import { NextResponse } from 'next/server';
+﻿export const runtime = 'nodejs';
+
+import { NextResponse } from 'next/server';
 import { readdir, readFile } from 'fs/promises';
 import { join } from 'path';
 import { getAuthUsernameFromCookies } from '@/lib/auth';
@@ -38,3 +40,4 @@ export async function GET(req: Request) {
     return NextResponse.json({ items: [] });
   }
 }
+

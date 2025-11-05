@@ -1,4 +1,6 @@
-﻿import { NextResponse } from 'next/server';
+﻿export const runtime = 'nodejs';
+
+import { NextResponse } from 'next/server';
 import { readFile } from 'fs/promises';
 import { join } from 'path';
 import { sanitizeUsername, verifyPassword, setAuthCookie } from '@/lib/auth';
@@ -26,3 +28,4 @@ export async function POST(req: Request) {
     return NextResponse.json({ error: '账号或密码错误' }, { status: 401 });
   }
 }
+
