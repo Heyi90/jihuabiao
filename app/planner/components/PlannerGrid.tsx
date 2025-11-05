@@ -83,6 +83,16 @@ export default function PlannerGrid({ days, tasks, onChangeTasks, anchorDate, on
   const [marquee, setMarquee] = useState<null | {startX:number; startY:number; x:number; y:number}>(null);
 
   const heightPx = (hours.length - 1) * HOUR_PX;
+  const nowLine = useMemo(() => {
+    const base = new Date(anchorDate ?? new Date()); base.setHours(0,0,0,0);
+    const now = new Date(); const today = new Date(now); today.setHours(0,0,0,0);
+    const dayIndex = Math.floor((today.getTime() - base.getTime())/86400000);
+    if (dayIndex < 0 || dayIndex >= days) return null;
+    const hh = String(now.getHours()).padStart(2,'0');
+    const mm = String(now.getMinutes()).padStart(2,'0');
+    const y = timeToOffsetPx((hh+':'+mm));
+    return { dayIndex, y } as { dayIndex:number; y:number };
+  }, [anchorDate, days]);
 
   const dayLabels = useMemo(() => {
     const base = new Date(anchorDate ?? new Date()); base.setHours(0,0,0,0);
@@ -251,6 +261,7 @@ export default function PlannerGrid({ days, tasks, onChangeTasks, anchorDate, on
           <div className="relative flex" style={{ height: `${(hours.length-1)*HOUR_PX}px`}}>
             {dayLabels.map((_, col) => (
               <div key={col} className="relative flex-1 border-r" onDoubleClick={(e) => handleCreateAt(col, e.clientY)}>
+                {nowLine && nowLine.dayIndex===col && (<div className="pointer-events-none absolute left-0 right-0 border-t border-red-500/80" style={{ top: `${nowLine.y}px`}} />)}
                 {tasks.filter(t => t.dayIndex===col).map(t => {
                   const top = timeToOffsetPx(t.start);
                   const height = Math.max(HOUR_PX/2, minutesBetween(t.start, t.end) / 60 * HOUR_PX);
@@ -261,7 +272,7 @@ export default function PlannerGrid({ days, tasks, onChangeTasks, anchorDate, on
                   const ringCls = ringClass(t);
                   return (
                     <div key={t.id} data-card="1"
-                      className={`group absolute left-1 right-1 rounded-md border text-xs px-2 py-1 shadow-sm ${isConflict? 'bg-red-100/60 border-red-300 text-red-900 dark:bg-red-900/30 dark:border-red-800 dark:text-red-200' : (t.done? colorCls + ' line-through opacity-80' : colorCls)} ${isSel?('ring-2 ' + ringCls):''}`}
+                      className={`group absolute left-1 right-1 rounded-md border text-xs px-2 py-1 shadow-sm hover:shadow ring-1 ring-transparent hover:ring-zinc-300 transition ${isConflict? 'bg-red-100/60 border-red-300 text-red-900 dark:bg-red-900/30 dark:border-red-800 dark:text-red-200' : (t.done? colorCls + ' line-through opacity-80' : colorCls)} ${isSel?('ring-2 ' + ringCls):''}`}
                       style={{ top, height }}
                       title={`${t.title} (${t.start}-${t.end})`}
                       onMouseDown={(e) => {
@@ -299,7 +310,7 @@ export default function PlannerGrid({ days, tasks, onChangeTasks, anchorDate, on
                             <span>{t.title}</span>
                             <div className="flex items-center gap-2">
                               {isConflict && <span className="ml-1 rounded bg-red-500/80 px-1 text-[10px] leading-4 text-white">冲突</span>}
-                              <button aria-label="toggle done" className={`h-4 w-4 rounded border text-[10px] leading-3 ${t.done?'bg-green-500 text-white border-green-600':'bg-white/60 dark:bg-zinc-900/60'}`} onClick={(e) => { (e as any).stopPropagation(); onChangeTasks?.(tasks.map(x=> x.id===t.id ? { ...x, done: !x.done } : x)); }}>{t.done ? 'x' : ''}</button>
+                              <button aria-label="toggle done" className={`h-4 w-4 rounded border text-[10px] leading-3 ${t.done?'bg-green-500 text-white border-green-600':'bg-white/60 dark:bg-zinc-900/60'}`} onClick={(e) => { (e as any).stopPropagation(); onChangeTasks?.(tasks.map(x=> x.id===t.id ? { ...x, done: !x.done } : x)); }}>\{t.done ? '✓' : ''\}</button>
                             </div>
                           </div>
                           <div className="opacity-70">{t.start} - {t.end}</div>
@@ -318,6 +329,9 @@ export default function PlannerGrid({ days, tasks, onChangeTasks, anchorDate, on
     </div>
   );
 }
+
+
+
 
 
 
