@@ -1,35 +1,44 @@
 ﻿export type UserRecord = { username: string; password: string; createdAt: string };
 export type PlanRecord = { tasks: any[]; view: 'day'|'week'|'month'; days: number; anchorDate: string };
 
-const fs = typeof process === 'object' ? await import('fs/promises').catch(()=>null) : null;
-const path = typeof process === 'object' ? await import('path').catch(()=>null) : null;
-param($m) "$($m.Value)`n$helper" 
+// Try dynamic imports so local dev (node) 有 fs/path，Vercel 仍可工作
+const fs = (typeof process === 'object') ? await import('fs/promises').catch(()=>null as any) : null as any;
+const path = (typeof process === 'object') ? await import('path').catch(()=>null as any) : null as any;
 
-// FS helpers for local dev fallback
+let kv: any = null;
+try { kv = (await import('@vercel/kv')).kv; } catch {}
+
+function hasKV() { return !!kv && !!process.env.KV_REST_API_URL; }
+
+// helpers
 async function ensureDir(p: string) { if (!fs) return; try { await fs.mkdir(p, { recursive: true }); } catch {} }
 function dataDir() { return path!.join(process.cwd(), 'data'); }
+
+function asObj<T>(s: any): T | null {
+  if (s == null) return null;
+  if (typeof s === 'string') { try { return JSON.parse(s) as T; } catch { return null; } }
+  if (typeof s === 'object') return s as T;
+  return null;
+}
 
 export async function getUser(username: string): Promise<UserRecord | null> {
   if (hasKV()) {
     const s = await kv.get(`user:${username}`);
-    return s ? JSON.parse(s) as UserRecord : null;
+    return asObj<UserRecord>(s);
   }
   const file = path!.join(dataDir(), 'users', `${username}.json`);
   try { const s = await fs!.readFile(file, 'utf8'); return JSON.parse(s) as UserRecord; } catch { return null; }
 }
 
 export async function setUser(u: UserRecord): Promise<void> {
-  if (hasKV()) {
-    await kv.set(`user:${u.username}`, JSON.stringify(u));
-    return;
-  }
+  if (hasKV()) { await kv.set(`user:${u.username}`, JSON.stringify(u)); return; }
   const dir = path!.join(dataDir(), 'users'); await ensureDir(dir);
   const file = path!.join(dir, `${u.username}.json`);
   await fs!.writeFile(file, JSON.stringify(u, null, 2), 'utf8');
 }
 
 export async function hasUser(username: string): Promise<boolean> {
-  if (hasKV()) { return (await kv.exists(`user:${username}`)) === 1; }
+  if (hasKV()) { try { return (await kv.exists(`user:${username}`)) === 1; } catch { return false; } }
   const file = path!.join(dataDir(), 'users', `${username}.json`);
   try { await fs!.access(file); return true; } catch { return false; }
 }
@@ -37,7 +46,7 @@ export async function hasUser(username: string): Promise<boolean> {
 export async function getPlan(username: string): Promise<PlanRecord | null> {
   if (hasKV()) {
     const s = await kv.get(`plan:${username}`);
-    return s ? JSON.parse(s) as PlanRecord : null;
+    return asObj<PlanRecord>(s);
   }
   const file = path!.join(dataDir(), 'plans', `${username}.json`);
   try { const s = await fs!.readFile(file, 'utf8'); return JSON.parse(s) as PlanRecord; } catch { return null; }
@@ -48,8 +57,8 @@ export async function setPlan(username: string, plan: PlanRecord): Promise<void>
   if (hasKV()) {
     await kv.set(`plan:${username}`, JSON.stringify(plan));
     // history index + item
-    await kv.zadd(`plan_hist_idx:${username}`, { score: now, member: String(now) });
-    await kv.set(`plan_hist:${username}:${now}`, JSON.stringify(plan));
+    try { await kv.zadd(`plan_hist_idx:${username}`, { score: now, member: String(now) }); } catch {}
+    try { await kv.set(`plan_hist:${username}:${now}`, JSON.stringify(plan)); } catch {}
     return;
   }
   const base = dataDir();
@@ -61,8 +70,9 @@ export async function setPlan(username: string, plan: PlanRecord): Promise<void>
 
 export async function listHistory(username: string, limit=20): Promise<Array<{ts:number}>> {
   if (hasKV()) {
-    const ids: string[] = await kv.zrange(`plan_hist_idx:${username}`, 0, limit-1, { rev: true });
-    return ids.map(s => ({ ts: Number(s) })).filter(x => !Number.isNaN(x.ts));
+    const ids = await (kv.zrange(`plan_hist_idx:${username}`, 0, limit-1, { rev: true }) as Promise<any>);
+    const arr: string[] = Array.isArray(ids) ? ids : [];
+    return arr.map(s => ({ ts: Number(s) })).filter(x => !Number.isNaN(x.ts));
   }
   const dir = path!.join(dataDir(), 'plans_history', username);
   try {
@@ -80,10 +90,8 @@ export async function listHistory(username: string, limit=20): Promise<Array<{ts
 export async function getHistory(username: string, ts: number): Promise<PlanRecord | null> {
   if (hasKV()) {
     const s = await kv.get(`plan_hist:${username}:${ts}`);
-    return s ? JSON.parse(s) as PlanRecord : null;
+    return asObj<PlanRecord>(s);
   }
   const file = path!.join(dataDir(), 'plans_history', username, `${ts}.json`);
   try { const s = await fs!.readFile(file, 'utf8'); return JSON.parse(s) as PlanRecord; } catch { return null; }
 }
-
-
