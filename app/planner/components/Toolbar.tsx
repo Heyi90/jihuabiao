@@ -28,10 +28,10 @@ export default function Toolbar({ view, onChangeView, days, onChangeDays, onPrev
       <div className="flex flex-1 items-center gap-4">
         <div className="flex items-center gap-2">
           <button className="rounded border px-2 py-1 text-sm" onClick={onPrev}>◀</button>
-          <button className="rounded border px-2 py-1 text-sm" onClick={onToday}>今天</button>
+          <button className="rounded border px-2 py-1 text-sm hover:bg-zinc-50 dark:hover:bg-zinc-800" onClick={onToday}>今天</button>
           <button className="rounded border px-2 py-1 text-sm" onClick={onNext}>▶</button>
         </div>
-        <div className="text-sm text-zinc-700 dark:text-zinc-300">{rangeLabel}</div>
+        <div className="text-sm font-medium text-zinc-700 dark:text-zinc-300">{rangeLabel}</div>
         <div className="ml-2 flex items-center gap-2">
           <span className="text-sm text-zinc-600">颜色</span>
           {COLORS.map(c => (
@@ -74,3 +74,5 @@ export default function Toolbar({ view, onChangeView, days, onChangeDays, onPrev
     </div>
   );
 }
+
+
