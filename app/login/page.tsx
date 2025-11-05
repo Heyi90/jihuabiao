@@ -14,7 +14,7 @@ export default function LoginPage() {
     e.preventDefault(); setError('');
     const res = await fetch('/api/auth/login', {
       method: 'POST', headers: { 'content-type': 'application/json' },
-      body: JSON.stringify({ username, password, remember })
+      body: JSON.stringify({ username: username.trim(), password, remember })
     });
     if (res.ok) { router.push('/planner'); router.refresh(); } else { const j = await res.json().catch(()=>({})); setError(j.error || '登录失败'); }
   }
@@ -39,3 +39,4 @@ export default function LoginPage() {
     </div>
   );
 }
+

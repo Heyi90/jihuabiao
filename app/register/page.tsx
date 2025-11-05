@@ -13,7 +13,7 @@ export default function RegisterPage() {
     e.preventDefault(); setError('');
     const res = await fetch('/api/auth/register', {
       method: 'POST', headers: { 'content-type': 'application/json' },
-      body: JSON.stringify({ username, password })
+      body: JSON.stringify({ username: username.trim(), password })
     });
     if (res.ok) { alert('注册成功，请登录'); router.push('/login'); } else { const j = await res.json().catch(()=>({})); setError(j.error || '注册失败'); }
   }
@@ -37,3 +37,4 @@ export default function RegisterPage() {
     </div>
   );
 }
+
