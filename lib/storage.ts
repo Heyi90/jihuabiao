@@ -76,14 +76,7 @@ export async function listHistory(username: string, limit=20): Promise<Array<{ts
   }
   const dir = path!.join(dataDir(), 'plans_history', username);
   try {
-    const files = await fs!.readdir(dir);
-    return files
-      .filter(f=>f.endsWith('.json'))
-      .map(f=>Number(f.replace(/\.json$/, '')))
-      .filter(n=>!Number.isNaN(n))
-      .sort((a,b)=>b-a)
-      .slice(0, limit)
-      .map(ts=>({ ts }));
+    const filesAny = await fs!.readdir(dir) as any;\n    const filesArr: string[] = Array.isArray(filesAny) ? filesAny as string[] : [];\n    return filesArr\n      .filter((f: string)=>f.endsWith('.json'))\n      .map((f: string)=>Number(f.replace(/\\.json$/, '')))\n      .filter((n: number)=>!Number.isNaN(n))\n      .sort((a: number,b: number)=>b-a)\n      .slice(0, limit)\n      .map((ts: number)=>({ ts }));
   } catch { return []; }
 }
 
@@ -95,3 +88,4 @@ export async function getHistory(username: string, ts: number): Promise<PlanReco
   const file = path!.join(dataDir(), 'plans_history', username, `${ts}.json`);
   try { const s = await fs!.readFile(file, 'utf8'); return JSON.parse(s) as PlanRecord; } catch { return null; }
 }
+
