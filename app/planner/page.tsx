@@ -69,7 +69,32 @@ export default function PlannerPage() {
         rangeLabel={rangeLabel}
         selectedTaskIds={selectedTaskIds}
         onChangeTaskColor={(c) => setTasks(prev => prev.map(t => (selectedTaskIds.includes(t.id) ? { ...t, color: c } : t)))}
-        extraRight={<><SaveMenu tasks={derivedTasks} view={view} days={days} anchorDate={anchorDate} onLoad={(j)=>{ setView((j.view==='month'?'month':'week') as any); setDays(Number(j.days)||7); setAnchorDate(new Date(j.anchorDate||anchorDate)); setTasks(Array.isArray(j.tasks)? j.tasks.map((t:any)=>({ ...t, dayIndex: Number(t.dayIndex)||0, start: t.start, end: t.end, title: String(t.title||'') })) : tasks); }} /><ExportMenu days={days} tasks={derivedTasks} anchorDate={anchorDate} /></>}
+        extraRight={<>
+          <SaveMenu
+            tasks={derivedTasks}
+            view={view}
+            days={days}
+            anchorDate={anchorDate}
+            onLoad={(j)=>{
+              const savedAnchor = new Date(j.anchorDate || anchorDate);
+              // 把保存时相对 savedAnchor 的 dayIndex 换算回相对 baseAnchor 的 dayIndex
+              const dShift = diffDays(savedAnchor, baseAnchor);
+              setView((j.view==='month'?'month':'week') as any);
+              setDays(Number(j.days)||7);
+              setAnchorDate(savedAnchor);
+              setTasks(Array.isArray(j.tasks)
+                ? j.tasks.map((t:any)=>({
+                    ...t,
+                    dayIndex: (Number(t.dayIndex)||0) + dShift,
+                    start: t.start,
+                    end: t.end,
+                    title: String(t.title||'')
+                  }))
+                : []);
+            }}
+          />
+          <ExportMenu days={days} tasks={derivedTasks} anchorDate={anchorDate} />
+        </>}
       />
       <div className="flex-1">
         {view === 'month' ? (
